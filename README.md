@@ -1,4 +1,4 @@
-Twecoll is a Twitter command-line tool written in Python. It can be used to retrieve data from Twitter and purge favorites, its only data-altering feature. It is based on a sub-command principle meaning calls to twecoll are generally followed by a keyword which instruct twecoll what to do. Twecoll currently retrieves data along 'friend' relationships but can easily be modified to support 'follower'. Below is a list of examples followed by a brief explanation of each command. Running twecoll requires Python 2.7 and the argparse library. The igraph library is optional. It was not tested with Python 3.
+Twecoll is a Twitter command-line tool written in Python. It can be used to retrieve data from Twitter and purge favorites, its only data-altering feature. It is based on a sub-command principle meaning calls to twecoll are generally followed by a keyword which instruct twecoll what to do. Below is a list of examples followed by a brief explanation of each command. Running twecoll requires Python 2.7 and the argparse library. The igraph library is optional. It was not tested with Python 3 and currently breaks with Python 2.6.
 
 Place twecoll in your path and create a working directory to store the data collected. Twecoll creates a number of files and folders to store its data.
 
@@ -29,7 +29,7 @@ In order to purge the favorites, twecoll needs the .fav file. You can the execut
 $ twecoll favorites -p jdevoo
 ```
 
-This is the only command that alters account data. You cannot run it against another account.
+This is the only command that alters account data. You will need to select the Read+Write permission model for this to work when registering twecoll.
 
 
 ## Downloading Tweets
@@ -50,7 +50,7 @@ This will also generate a .twt file name with the url-encoded search string.
 
 
 ## Generating a Twitter Graph
-It is possible to generate a gml file of your first and second degree relationships on Twitter. This is a multi-step process that takes time due to API throttling by Twitter. In order to generate the graph, twecoll retrieves the handle's friends and all friends-of -friends (2nd degree relationships). It then calculates the relations between those, ignoreing 2nd degree relationships to which the handle is not connected. In other words, it looks only for relationships among the friends of the handle supplied to it.
+It is possible to generate a gml file of your first and second degree relationships on Twitter. This is a multi-step process that takes time due to API throttling by Twitter. In order to generate the graph, twecoll retrieves the handle's friends and all friends-of-friends (2nd degree relationships). It then calculates the relations between those, ignoring 2nd degree relationships to which the handle is not connected. In other words, it looks only for relationships among the friends of the handle supplied to it.
 
 First retrieve the handle details
 
@@ -108,7 +108,7 @@ optional arguments:
 
 sub-commands:
   {init,fetch,memberships,metrics,tweets,favorites,edgelist}
-    init                retrieve friends data for screen_name
+    init                retrieve friends/followers data for screen_name
     fetch               retrieve friends of friends
     memberships         retrieve memberships
     metrics             generate back-of-envelope metrics
@@ -116,3 +116,11 @@ sub-commands:
     favorites           retrieve favorites
     edgelist            generate graph in GML format
 ```
+
+## Changes
+
+* Version 1.1
+	- Initial commit
+* Version 1.2
+	- Added option to init to retrieve followers instead of friends
+

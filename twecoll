@@ -39,7 +39,7 @@ import csv
 import re
 import codecs
 
-__version__     = '1.1'
+__version__     = '1.2'
 ALPHANUM        = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
@@ -248,7 +248,8 @@ def init(args):
     bag = list(set(bag))
   else:
     bag = [args.screen_name] + \
-      _ids('friends', 'screen_name='+args.screen_name)
+      _ids('followers' if args.followers else 'friends', \
+        'screen_name='+args.screen_name)
   filename = args.screen_name+TT_EXT
   if not args.force and os.path.isfile(filename):
     f = open(filename, 'r+')
@@ -625,6 +626,8 @@ def main():
 
   sp_init = sp.add_parser('init', \
     help='retrieve friends data for screen_name')
+  sp_init.add_argument('-o', '--followers', action='store_true', \
+    help='retrieve followers instead of friends (default: False)')
   sp_init.add_argument('-q', '--query', action='store_true', \
     help='extract handles from query (default: False)')
   sp_init.add_argument('-f', '--force', action='store_true', \

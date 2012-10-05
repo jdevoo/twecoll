@@ -627,7 +627,7 @@ def main():
     help='ignore existing %s file (default: False)' % TT_EXT)
   sp_init.set_defaults(func=init)
 
-  sp_fetch = sp.add_parser('fetch', help='retrieve friends of friends')
+  sp_fetch = sp.add_parser('fetch', help='retrieve friends of handles in %s file' % TT_EXT)
   sp_fetch.add_argument('-f', '--force', action='store_true', \
     help='ignore if file already exists (default: False)')
   sp_fetch.add_argument('-c', dest='count', type=int, default=FMAX, \

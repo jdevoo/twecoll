@@ -94,9 +94,11 @@ This produces a jdevoo.boe file
 ## Usage
 ```
 $ twecoll -h
-twecoll [-h] [-v] [-s]
-   {init,fetch,memberships,metrics,tweets,favorites,edgelist} ...
-   screen_name
+usage: twecoll [-h] [-v] [-s]
+               {init,fetch,memberships,metrics,tweets,favorites,edgelist} ...
+               screen_name
+
+Twitter Collection Tool
 
 positional arguments:
   screen_name           Twitter screen name
@@ -108,8 +110,8 @@ optional arguments:
 
 sub-commands:
   {init,fetch,memberships,metrics,tweets,favorites,edgelist}
-    init                retrieve friends/followers data for screen_name
-    fetch               retrieve friends of friends
+    init                retrieve friends data for screen_name
+    fetch               retrieve friends of handles in .dat file
     memberships         retrieve memberships
     metrics             generate back-of-envelope metrics
     tweets              retrieve tweets

@@ -354,7 +354,7 @@ def edgelist(args):
     g.vs['color'] = ['#00aced']
     width = height = math.log(vert_count)*220
     igraph.plot(g, args.screen_name+GRPH_EXT, \
-      layout=g.layout('circle'), \
+      layout=g.layout('kk'), \
       bbox=(width, height))
 
 def fetch(args):

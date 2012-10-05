@@ -590,14 +590,7 @@ def metrics(args):
 
 class StatsAction(argparse.Action):
   def __call__(self, parse, namespace, values, option_string=None):
-    try:
-      _replace_opener()
-    except KeyboardInterrupt:
-      sys.stdout.write('\n')
-      sys.exit(2)
-    except Exception, err:
-      sys.stdout.write(str(err)+'\n')
-      sys.exit(1)
+    _replace_opener()
     url = 'https://api.twitter.com/1.1/application/rate_limit_status.json?resources=users,friends,lists,statuses,search,favorites'
     conn = urllib2.urlopen(url)
     data = json.loads(conn.read())
@@ -671,8 +664,8 @@ def main():
   parser.add_argument(dest='screen_name', action=QuoteAction, \
     help='Twitter screen name')
 
-  args = parser.parse_args()
   try:
+    args = parser.parse_args()
     _replace_opener()
     args.func(args)
   except KeyboardInterrupt:

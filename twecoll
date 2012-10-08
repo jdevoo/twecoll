@@ -307,7 +307,7 @@ def init(args):
       ','+str(data['friends_count'])+
       ','+str(data['followers_count'])+
       ','+str(data['statuses_count'])+
-      ','+url+
+      ','+url.encode('ascii', 'replace')+
       ','+avatar+'\n')
 
 def edgelist(args):

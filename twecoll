@@ -544,7 +544,7 @@ def memberships(args):
     os.makedirs(FDAT_DIR)
   for user_id in dat:
     filename = FDAT_DIR+'/'+str(user_id)+MDAT_EXT
-    if not os.path.isfile(filename):
+    if args.force or not os.path.isfile(filename):
       sys.stdout.write('Processing %s...\n' % user_id)
       f = open(filename, 'w')
       try:
@@ -629,12 +629,14 @@ def main():
 
   sp_fetch = sp.add_parser('fetch', help='retrieve friends of handles in %s file' % TT_EXT)
   sp_fetch.add_argument('-f', '--force', action='store_true', \
-    help='ignore if file already exists (default: False)')
+    help='ignore existing %s files (default: False)' % FDAT_EXT)
   sp_fetch.add_argument('-c', dest='count', type=int, default=FMAX, \
     help='skip if above count (default: %(FMAX)i)' % globals())
   sp_fetch.set_defaults(func=fetch)
 
   sp_memberships = sp.add_parser('memberships', help='retrieve memberships')
+  sp_memberships.add_argument('-f', '--force', action='store_true', \
+    help='ignore existing %s files (default: False)' % MDAT_EXT)
   sp_memberships.set_defaults(func=memberships)
 
   sp_metrics = sp.add_parser('metrics', help='generate back-of-envelope metrics', \

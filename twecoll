@@ -481,7 +481,7 @@ def favorites(args):
           else:
             continue
         max_id = min(max_id, tweet['id']) or tweet['id']
-        f.write('%-20s %30s %-12s %-20s %s\n' % ( \
+        f.write('%-20s %30s %-12s @%-20s %s\n' % ( \
           tweet['id_str'], \
           tweet['created_at'], \
           tweet['user']['id_str'], \
@@ -660,7 +660,7 @@ def main():
   sp_edgelist.set_defaults(func=edgelist)
 
   parser.add_argument('-s', '--stats', action=StatsAction, nargs=0, \
-    help='show Twitter API stats and exit')
+    help='show Twitter throttling stats and exit')
   parser.add_argument(dest='screen_name', action=QuoteAction, \
     help='Twitter screen name')
 

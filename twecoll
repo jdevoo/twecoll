@@ -374,7 +374,10 @@ def fetch(args):
       try:
         bag = _ids('friends', 'user_id='+str(item[0]))
       except urllib2.HTTPError, e:
-        if e.code in RETRY_CODES:
+        if e.code in SKIP_CODES:
+          sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item[0]))
+          continue
+        elif e.code in RETRY_CODES:
           sys.stdout.write('HTTPError %s with %s. Retrying...' % (e.code, item[0]))
           sys.stdout.flush()
           dat.append(item)

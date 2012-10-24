@@ -600,7 +600,7 @@ class StatsAction(argparse.Action):
     sys.stdout.write('memberships (%s), ' % \
       data['resources']['lists']['/lists/memberships']['remaining'])
     sys.stdout.write('tweets (%s, -q %s), ' % ( \
-      data['resources']['statuses']['/statuses/user_timeline']['remaining'], \
+      data['resources']['statuses']['/statuses/user_timeline/:id']['remaining'], \
       data['resources']['search']['/search/tweets']['remaining']))
     sys.stdout.write('favorites (%s)\n' % \
       data['resources']['favorites']['/favorites/list']['remaining'])

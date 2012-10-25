@@ -39,7 +39,7 @@ import csv
 import re
 import codecs
 
-__version__     = '1.2'
+__version__     = '1.3'
 ALPHANUM        = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
@@ -49,7 +49,7 @@ FDAT_EXT    = '.f'
 MDAT_EXT    = '.m'
 FAV_EXT     = '.fav'
 TWT_EXT     = '.twt'
-STAT_EXT    = '.boe'
+STAT_EXT    = '.csv'
 FMAX        = 3000
 EDG_EXT     = '.gml' # Graph Modeling Language
 GRPH_EXT    = '.png'
@@ -568,26 +568,18 @@ def memberships(args):
 
 def metrics(args):
   out = open(args.screen_name+STAT_EXT, 'w')
-  out.write('user_id,screen_name,friends,followers,memberships,FFR,LFR\n')
+  out.write('user_id,screen_name,friends,followers,memberships\n')
   for item in csv.reader(open(args.screen_name+TT_EXT)):
     user_id = item[0]
+    screen_name = item[1]
+    friends = float(item[2])
+    followers = float(item[3])
     filename = FDAT_DIR+'/'+str(user_id)+MDAT_EXT
     if os.path.isfile(filename):
-      m =  open(filename).readline().strip()
-      screen_name = item[1]
-      friends = float(item[2])
-      followers = float(item[3])
-      memberships = float(m) if m != '' else 0
-      if memberships == 0 or friends == 0 or followers == 0:
-        continue
-      out.write('%s,%s,%i,%i,%i,%.4f,%.4f\n' % (
-        user_id,
-        screen_name,
-        friends,
-        followers,
-        memberships,
-        followers/friends,
-        memberships/followers))
+      memberships =  open(filename).readline().strip()
+    else:
+      memberships = '?'
+    out.write('%s,%s,%i,%i,%s\n' % (user_id, screen_name, friends, followers, memberships))
 
 class StatsAction(argparse.Action):
   def __call__(self, parse, namespace, values, option_string=None):
@@ -640,7 +632,7 @@ def main():
     help='ignore existing %s files (default: False)' % MDAT_EXT)
   sp_memberships.set_defaults(func=memberships)
 
-  sp_metrics = sp.add_parser('metrics', help='generate back-of-envelope metrics', \
+  sp_metrics = sp.add_parser('metrics', help='generate CSV for data analysis', \
     description='friends, followers, memberships, followers-to-friends, memberships-to-followers')
   sp_metrics.set_defaults(func=metrics)
 

@@ -285,6 +285,7 @@ def init(args):
         sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume...' % \
           (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
         sys.stdout.flush()
+        bag.append(item)
         time.sleep(RL_WINDOW+random.randint(10,100))
         sys.stdout.write('\n')
         continue

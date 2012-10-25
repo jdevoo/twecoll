@@ -544,7 +544,8 @@ def memberships(args):
   dat = [item[0] for item in csv.reader(open(args.screen_name+TT_EXT))]
   if not os.path.exists(FDAT_DIR):
     os.makedirs(FDAT_DIR)
-  for user_id in dat:
+  while len(dat) > 0:
+    user_id = dat.pop()
     filename = FDAT_DIR+'/'+str(user_id)+MDAT_EXT
     if args.force or not os.path.isfile(filename):
       sys.stdout.write('Processing %s...\n' % user_id)
@@ -555,6 +556,7 @@ def memberships(args):
           sys.stderr.write('URLError %s at %s. Waiting %sm to resume...' % \
             (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
           time.sleep(RL_WINDOW+random.randint(10,100))
+          dat.append(user_id)
           sys.stderr.write('\n')
           continue
         else:

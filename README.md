@@ -50,7 +50,7 @@ This will also generate a .twt file name with the url-encoded search string.
 
 
 ## Generating a Twitter Graph
-It is possible to generate a gml file of your first and second degree relationships on Twitter. This is a multi-step process that takes time due to API throttling by Twitter. In order to generate the graph, twecoll retrieves the handle's friends and all friends-of-friends (2nd degree relationships). It then calculates the relations between those, ignoring 2nd degree relationships to which the handle is not connected. In other words, it looks only for relationships among the friends of the handle supplied to it.
+It is possible to generate a GML file of your first and second degree relationships on Twitter. This is a multi-step process that takes time due to API throttling by Twitter. In order to generate the graph, twecoll retrieves the handle's friends and all friends-of-friends (2nd degree relationships). It then calculates the relations between those, ignoring 2nd degree relationships to which the handle is not connected. In other words, it looks only for relationships among the friends of the handle supplied to it.
 
 First retrieve the handle details
 
@@ -70,32 +70,14 @@ This populates the fdat directory. You can now generate the graph file.
 $ twecoll edgelist jdevoo
 ```
 
-This generates a jdevoo.gml file in Graph Model Language. If you have installed the python version of igraph, a .png file will also be generated with a visualization of the gml data. You can also use other packages to visualize your gml file, e.g. Gephi.
-
-
-## Back-of-envelope Metrics
-Valdis Krebs of OrgNet originally posted about simple metrics to estimate the influence of a Twitter user. Twecoll can calculate these indicators provided it has the membership information for each entry in the .dat file. Memberships represent the number of times someone has been listed on Twitter. Two steps are required:
-
-First retrieve membership data which generates .m files located under the fdat directory.
-
-```
-$ twecoll memberships jdevoo
-```
-
-Then generate the data containing the BoE metrics:
-
-```
-$ twecoll metrics jdevoo
-```
-
-This produces a jdevoo.boe file
-
+This generates a jdevoo.gml file in Graph Model Language. If you have installed the python version of igraph, a .png file will also be generated with a visualization of the GML data. You can also use other packages to visualize your GML file, e.g. Gephi.
+The GML file will include friends and followers as properties. If followers is not zero, the friends-to-followers ratio will be calculated. If memberships are available, they will also be part of node attributes.
 
 ## Usage
 ```
 $ twecoll -h
 usage: twecoll [-h] [-v] [-s]
-               {init,fetch,memberships,metrics,tweets,favorites,edgelist} ...
+               {init,fetch,memberships,tweets,favorites,edgelist} ...
                screen_name
 
 Twitter Collection Tool
@@ -113,7 +95,6 @@ sub-commands:
     init                retrieve friends data for screen_name
     fetch               retrieve friends of handles in .dat file
     memberships         retrieve memberships
-    metrics             generate back-of-envelope metrics
     tweets              retrieve tweets
     favorites           retrieve favorites
     edgelist            generate graph in GML format
@@ -125,4 +106,5 @@ sub-commands:
 	- Initial commit
 * Version 1.2
 	- Added option to init to retrieve followers instead of friends
-
+* Version 1.3
+        - simplified metrics now included in GML file

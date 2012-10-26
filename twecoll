@@ -49,7 +49,6 @@ FDAT_EXT    = '.f'
 MDAT_EXT    = '.m'
 FAV_EXT     = '.fav'
 TWT_EXT     = '.twt'
-STAT_EXT    = '.csv'
 FMAX        = 3000
 EDG_EXT     = '.gml' # Graph Modeling Language
 GRPH_EXT    = '.png'
@@ -119,15 +118,13 @@ class OAuthHandler(urllib2.BaseHandler):
     if method == 'POST':
       req.add_header('Content-type', 'application/x-www-form-urlencoded')
 
-    query = map(lambda (k, v): (k, urllib.quote(v)), \
-      urlparse.parse_qsl(query))
+    query = map(lambda (k, v): (k, urllib.quote(v)), urlparse.parse_qsl(query))
 
     oauth_params = [
       ('oauth_consumer_key', self.consumer.key),
       ('oauth_signature_method', 'HMAC-SHA1'),
       ('oauth_timestamp', int(time.time())),
-      ('oauth_nonce', ''.join( \
-        [random.choice(ALPHANUM) for i in range(16)])),
+      ('oauth_nonce', ''.join([random.choice(ALPHANUM) for i in range(16)])),
       ('oauth_version', '1.0')]
     if self.token is not None:
       oauth_params.append(('oauth_token', self.token.key))
@@ -170,15 +167,12 @@ def _replace_opener():
     atoken = Token(oauth, oauth_secret)
   else:
     opener = urllib2.build_opener(OAuthHandler(consumer))
-    resp = opener.open( \
-      Request('https://api.twitter.com/oauth/request_token'))
+    resp = opener.open(Request('https://api.twitter.com/oauth/request_token'))
     rtoken = urlparse.parse_qs(resp.read())
-    rtoken = Token( \
-      rtoken['oauth_token'][0], rtoken['oauth_token_secret'][0])
+    rtoken = Token(rtoken['oauth_token'][0], rtoken['oauth_token_secret'][0])
     sys.stdout.write('''TWITTER API AUTHENTICATION SETUP
 Open the following link in your browser and authorize me...
-'>>> https://api.twitter.com/oauth/authorize?oauth_token=%s\n''' \
-      % rtoken.key)
+'>>> https://api.twitter.com/oauth/authorize?oauth_token=%s\n''' % rtoken.key)
     sys.stdout.write('What is the PIN? ')
     verifier = sys.stdin.readline().rstrip('\r\n')
     opener = urllib2.build_opener(OAuthHandler(consumer, rtoken))
@@ -186,13 +180,11 @@ Open the following link in your browser and authorize me...
       Request('https://api.twitter.com/oauth/access_token', \
       oauth_params={'oauth_verifier': verifier}))
     atoken = urlparse.parse_qs(resp.read())
-    atoken = Token( \
-      atoken['oauth_token'][0], atoken['oauth_token_secret'][0])
+    atoken = Token(atoken['oauth_token'][0], atoken['oauth_token_secret'][0])
     f.write(atoken.key+'\n')
     f.write(atoken.secret+'\n')
     f.close()
-    sys.stdout.write('Setup complete. Tokens added to %s\n' % \
-      filename)
+    sys.stdout.write('Setup complete. Tokens added to %s\n' % filename)
   opener = urllib2.build_opener(OAuthHandler(consumer, atoken))
   urllib2.install_opener(opener)
 
@@ -249,8 +241,7 @@ def init(args):
     bag = list(set(bag))
   else:
     bag = [args.screen_name] + \
-      _ids('followers' if args.followers else 'friends', \
-        'screen_name='+args.screen_name)
+      _ids('followers' if args.followers else 'friends', 'screen_name='+args.screen_name)
   filename = args.screen_name+TT_EXT
   if not args.force and os.path.isfile(filename):
     f = open(filename, 'r+')
@@ -275,7 +266,7 @@ def init(args):
         sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item))
         continue
       elif e.code in RETRY_CODES:
-        sys.stdout.write('HTTPError %s with %s. Retrying...' % (e.code, item))
+        sys.stdout.write('HTTPError %s with %s. Deferred...' % (e.code, item))
         sys.stdout.flush()
         bag.append(item)
         time.sleep(random.randint(10,60))
@@ -297,8 +288,7 @@ def init(args):
     user_id = data['id_str'] if isinstance(item, str) else str(item)
     name = item if isinstance(item, str) else data['screen_name']
     url = data['url'] if data['url'] is not None else ''
-    avatar = data['profile_image_url'] \
-      if data['profile_image_url'] is not None else ''
+    avatar = data['profile_image_url'] if data['profile_image_url'] is not None else ''
     if avatar != '':
       try:
         _fetch_img(user_id, avatar)
@@ -313,19 +303,27 @@ def init(args):
       ','+avatar+'\n')
 
 def edgelist(args):
-  dat = {item[0]:item[1] \
+  dat = {item[0]:[item[1], item[2], item[3]] \
     for item in csv.reader(open(args.screen_name+TT_EXT))}
   vert_count = len(dat)
   if not args.query:
-    id0 = [user_id for user_id, screen_name in dat.iteritems() \
-      if screen_name == args.screen_name][0]
+    id0 = [user_id for user_id, val in dat.iteritems() if val[0] == args.screen_name][0]
   e = open(args.screen_name+EDG_EXT, 'w')
   e.write('graph [\n  directed 1\n')
-  for user_id, name in dat.iteritems():
-    if not args.ego and name == args.screen_name:
+  for user_id, val in dat.iteritems():
+    if not args.ego and val[0] == args.screen_name:
       continue
-    e.write('  node [\n    id %s\n    label "%s"\n  ]\n' % \
-      (user_id, name))
+    e.write('  node [\n    id %s\n    label "%s"\n    friends %s\n    followers %s' % \
+      (user_id, val[0], val[1], val[2]))
+    if float(val[2]) > 0:
+      e.write('\n    ffr %.4f' % (float(val[1])/float(val[2])))
+    filename = FDAT_DIR+'/'+str(user_id)+MDAT_EXT
+    if os.path.isfile(filename):
+      m =  open(filename).readline().strip()
+      e.write('\n    memberships %s' % m)
+      if float(val[2]) > 0:
+        e.write('\n    lfr %.4f' % (float(m)/float(val[2])))
+    e.write('\n  ]\n')
   for id1 in dat.keys():
     if not args.query and id1 == id0:
       continue
@@ -343,7 +341,7 @@ def edgelist(args):
             (id1, id2, 1.0))
       f.close()
     else:
-      sys.stdout.write('Missing data for %s\n' % dat[id1])
+      sys.stdout.write('Missing data for %s\n' % dat[id1][0])
   e.write(']\n')
   e.close()
   try:
@@ -366,8 +364,7 @@ def fetch(args):
   while len(dat) > 0:
     item = dat.pop()
     if int(item[2]) > args.count:
-      sys.stdout.write('Skipping %s (%s %s)\n' % \
-        (item[1], item[2], 'friends'))
+      sys.stdout.write('Skipping %s (%s %s)\n' % (item[1], item[2], 'friends'))
       continue
     filename = FDAT_DIR+'/'+str(item[0])+FDAT_EXT
     if args.force or not os.path.isfile(filename):
@@ -379,7 +376,7 @@ def fetch(args):
           sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item[0]))
           continue
         elif e.code in RETRY_CODES:
-          sys.stdout.write('HTTPError %s with %s. Retrying...' % (e.code, item[0]))
+          sys.stdout.write('HTTPError %s with %s. Deferred...' % (e.code, item[0]))
           sys.stdout.flush()
           dat.append(item)
           time.sleep(random.randint(10,60))
@@ -421,7 +418,7 @@ def favorites(args):
           sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item))
           continue
         elif e.code in RETRY_CODES:
-          sys.stdout.write('HTTPError %s. Retrying...' % e.code)
+          sys.stdout.write('HTTPError %s. Deferred...' % e.code)
           sys.stdout.flush()
           time.sleep(random.randint(10,60))
           dat.append(item)
@@ -566,21 +563,6 @@ def memberships(args):
       f.write(str(m)+'\n')
       f.close()
 
-def metrics(args):
-  out = open(args.screen_name+STAT_EXT, 'w')
-  out.write('user_id,screen_name,friends,followers,memberships\n')
-  for item in csv.reader(open(args.screen_name+TT_EXT)):
-    user_id = item[0]
-    screen_name = item[1]
-    friends = float(item[2])
-    followers = float(item[3])
-    filename = FDAT_DIR+'/'+str(user_id)+MDAT_EXT
-    if os.path.isfile(filename):
-      memberships =  open(filename).readline().strip()
-    else:
-      memberships = '?'
-    out.write('%s,%s,%i,%i,%s\n' % (user_id, screen_name, friends, followers, memberships))
-
 class StatsAction(argparse.Action):
   def __call__(self, parse, namespace, values, option_string=None):
     _replace_opener()
@@ -620,28 +602,28 @@ def main():
     help='ignore existing %s file (default: False)' % TT_EXT)
   sp_init.set_defaults(func=init)
 
-  sp_fetch = sp.add_parser('fetch', help='retrieve friends of handles in %s file' % TT_EXT)
+  sp_fetch = sp.add_parser('fetch', \
+    help='retrieve friends of handles in %s file' % TT_EXT)
   sp_fetch.add_argument('-f', '--force', action='store_true', \
     help='ignore existing %s files (default: False)' % FDAT_EXT)
   sp_fetch.add_argument('-c', dest='count', type=int, default=FMAX, \
     help='skip if above count (default: %(FMAX)i)' % globals())
   sp_fetch.set_defaults(func=fetch)
 
-  sp_memberships = sp.add_parser('memberships', help='retrieve memberships')
+  sp_memberships = sp.add_parser('memberships', \
+    help='retrieve memberships')
   sp_memberships.add_argument('-f', '--force', action='store_true', \
     help='ignore existing %s files (default: False)' % MDAT_EXT)
   sp_memberships.set_defaults(func=memberships)
 
-  sp_metrics = sp.add_parser('metrics', help='generate CSV for data analysis', \
-    description='friends, followers, memberships, followers-to-friends, memberships-to-followers')
-  sp_metrics.set_defaults(func=metrics)
-
-  sp_tweets = sp.add_parser('tweets', help='retrieve tweets')
+  sp_tweets = sp.add_parser('tweets', \
+    help='retrieve tweets')
   sp_tweets.add_argument('-q', '--query', action='store_true', \
     help='argument is a query (default: False)')
   sp_tweets.set_defaults(func=tweets)
 
-  sp_favorites = sp.add_parser('favorites', help='retrieve favorites')
+  sp_favorites = sp.add_parser('favorites', \
+    help='retrieve favorites')
   sp_favorites.add_argument('-p', '--purge', action='store_true', \
     help='destroy favorites (default: False)')
   sp_favorites.set_defaults(func=favorites)

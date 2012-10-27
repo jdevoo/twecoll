@@ -55,7 +55,7 @@ GRPH_EXT    = '.png'
 WAIT_CODES  = (400, 503, 429)
 RETRY_CODES = (500, 502)
 SKIP_CODES  = (401, 404)
-RL_WINDOW   = 15*60
+RL_WINDOW   = 15*60 # Rate limiting timeout
 
 def _quote(text):
   return urllib.quote(text, '-._~')
@@ -207,19 +207,32 @@ def _fetch_img(user_id, avatar):
   file.write(data)
   file.close()
 
-def _memberships(param, cursor=-1):
-  try:
-    url = 'https://api.twitter.com/1.1/lists/memberships.json?%s&cursor=%s'
-    conn = urllib2.urlopen(url % (param, cursor))
-  except:
-    raise
-  data = json.loads(conn.read())
-  conn.close()
-  if data['next_cursor'] != 0:
-    return len(data['lists']) + _memberships(param, data['next_cursor'])
-  else:
-    return len(data['lists'])
+class CursorError(urllib2.HTTPError):
+  def __init__(self, code, cursor=None, res=None):
+    urllib2.HTTPError.__init__(self, None, code, None, None, None)
+    self.cursor = cursor
+    self.res = res
 
+# Results are given in groups of 20
+def _memberships(param, c=None, init=None):
+  res = init or 0
+  cursor = c or -1
+  while True:
+    try:
+      url = 'https://api.twitter.com/1.1/lists/memberships.json?%s&cursor=%s'
+      conn = urllib2.urlopen(url % (param, cursor))
+    except urllib2.HTTPError, e:
+      raise CursorError(e.code, cursor, res)
+    data = json.loads(conn.read())
+    conn.close()
+    res = res + len(data['lists'])
+    if data['next_cursor'] != 0:
+      cursor = data['next_cursor']
+    else:
+      break
+  return res
+
+# Results are given in groups of 5,000
 def _ids(relation, param, cursor=-1):
   try:
     url = 'https://api.twitter.com/1.1/%s/ids.json?%s&cursor=%s'
@@ -277,7 +290,7 @@ def init(args):
           (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
         sys.stdout.flush()
         bag.append(item)
-        time.sleep(RL_WINDOW+random.randint(10,100))
+        time.sleep(RL_WINDOW+random.randint(10,60))
         sys.stdout.write('\n')
         continue
       else:
@@ -387,7 +400,7 @@ def fetch(args):
             (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
           sys.stdout.flush()
           dat.append(item)
-          time.sleep(RL_WINDOW+random.randint(10,100))
+          time.sleep(RL_WINDOW+random.randint(10,60))
           sys.stdout.write('\n')
           continue
         else:
@@ -428,7 +441,7 @@ def favorites(args):
           sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume...' % \
             (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
           sys.stdout.flush()
-          time.sleep(RL_WINDOW+random.randint(10,100))
+          time.sleep(RL_WINDOW+random.randint(10,60))
           dat.append(item)
           sys.stdout.write('\n')
           continue
@@ -444,10 +457,10 @@ def favorites(args):
     sys.stdout.flush()
     while True:
       try:
-        url = 'https://api.twitter.com/1.1/favorites/list.json?count=100&screen_name=%s'
+        url = 'https://api.twitter.com/1.1/favorites/list.json?count=%s&screen_name=%s'
         if max_id:
           url += '&max_id=%i' % max_id
-        conn = urllib2.urlopen(url % args.screen_name)
+        conn = urllib2.urlopen(url % (100, args.screen_name))
       except urllib2.HTTPError, e:
         if e.code in RETRY_CODES:
           sys.stdout.write('\nHTTPError %s. Retrying' % e.code)
@@ -459,7 +472,7 @@ def favorites(args):
           sys.stdout.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
             (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
           sys.stdout.flush()
-          time.sleep(RL_WINDOW+random.randint(10,100))
+          time.sleep(RL_WINDOW+random.randint(10,60))
           sys.stdout.write('\n')
           continue
         else:
@@ -510,7 +523,7 @@ def tweets(args):
         sys.stdout.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
           (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
         sys.stdout.flush()
-        time.sleep(RL_WINDOW+random.randint(10,100))
+        time.sleep(RL_WINDOW+random.randint(10,60))
         sys.stdout.write('\n')
         continue
       else:
@@ -541,19 +554,25 @@ def memberships(args):
   dat = [item[0] for item in csv.reader(open(args.screen_name+TT_EXT))]
   if not os.path.exists(FDAT_DIR):
     os.makedirs(FDAT_DIR)
+  cursor = None
+  res = None
   while len(dat) > 0:
-    user_id = dat.pop()
+    if cursor is None:
+      user_id = dat.pop()
     filename = FDAT_DIR+'/'+str(user_id)+MDAT_EXT
     if args.force or not os.path.isfile(filename):
       sys.stdout.write('Processing %s...\n' % user_id)
       try:
-        m = _memberships('user_id='+user_id)
-      except urllib2.URLError, e:
+        m = _memberships('user_id='+user_id, cursor, res)
+        cursor = None
+        res = None
+      except CursorError, e:
         if e.code in WAIT_CODES:
-          sys.stderr.write('URLError %s at %s. Waiting %sm to resume...' % \
+          sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume...' % \
             (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
-          time.sleep(RL_WINDOW+random.randint(10,100))
-          dat.append(user_id)
+          time.sleep(RL_WINDOW+random.randint(10,60))
+          cursor = e.cursor
+          res = e.res
           sys.stderr.write('\n')
           continue
         else:
@@ -597,7 +616,7 @@ def main():
   sp_init.add_argument('-o', '--followers', action='store_true', \
     help='retrieve followers (default: friends)')
   sp_init.add_argument('-q', '--query', action='store_true', \
-    help='extract handles from query (default: False)')
+    help='extract handles from query (default: screen_name)')
   sp_init.add_argument('-f', '--force', action='store_true', \
     help='ignore existing %s file (default: False)' % TT_EXT)
   sp_init.set_defaults(func=init)
@@ -619,7 +638,7 @@ def main():
   sp_tweets = sp.add_parser('tweets', \
     help='retrieve tweets')
   sp_tweets.add_argument('-q', '--query', action='store_true', \
-    help='argument is a query (default: False)')
+    help='argument is a query (default: screen_name)')
   sp_tweets.set_defaults(func=tweets)
 
   sp_favorites = sp.add_parser('favorites', \
@@ -633,7 +652,7 @@ def main():
   sp_edgelist.add_argument('-e', '--ego', action='store_true', \
     help='include screen_name (default: False)')
   sp_edgelist.add_argument('-q', '--query', action='store_true', \
-    help='argument is a query (default: False)')
+    help='argument is a query (default: screen_name)')
   sp_edgelist.set_defaults(func=edgelist)
 
   parser.add_argument('-s', '--stats', action=StatsAction, nargs=0, \

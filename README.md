@@ -1,21 +1,26 @@
-Twecoll is a Twitter command-line tool written in Python. It can be used to retrieve data from Twitter and purge favorites, its only data-altering feature. It is based on a sub-command principle meaning calls to twecoll are generally followed by a keyword which instruct twecoll what to do. Below is a list of examples followed by a brief explanation of each command. Running twecoll requires Python 2.7 and the argparse library. The igraph library is optional. It was not tested with Python 3 and currently breaks with Python 2.6.
+Twecoll is a Twitter command-line tool written in Python. It can be used to retrieve data from Twitter and purge favorites (its only data-altering feature). It is based on a sub-command principle meaning calls to twecoll are based on a keyword which instructs twecoll what to do. Below is a list of examples followed by a brief explanation of each command. Running twecoll requires Python 2.7 and the argparse library. The igraph library is optional and its use still very limited. It was not tested with Python 3.
+
+
+## Installation
 
 Place twecoll in your path and create a working directory to store the data collected. Twecoll creates a number of files and folders to store its data.
 
-* fdat: directory containing friends of friends files as well as membership data
+* fdat: directory containing friends of friends files
 * img: directory containing avatar images of friends
 * .dat: extension of account details data (friends, followers, avatar URL, etc. for account friends)
 * .twt: extension of tweets file (timestamp, tweet)
 * .fav: extension of favorites file (id, timestamp, user id, screen name, tweet)
 * .gml: extension of edgelist file (nodes and edges)
 * .png: edgelist graph image (igraph must be installed)
-* .m: membership data file (fdat)
 * .f: friends data (fdat)
 
-Twecoll uses oauth and has been updated to support the 1.1 version of the Twitter REST API. Register your own copy of twecoll on http://dev.twitter.com and copy the consumer key and secret to .twecoll. Place that file in your home directory. The first time you run a twecoll command, it will retrieve the oauth token and secret. Follow the instructions on the console. Twecoll has built-in help, version and API status switches invoked with -h, -v and -s respectively. Each command can also be invoked with the help switch for additional information about its sub-options.
+Twecoll uses oauth and has been updated to support the 1.1 version of the Twitter REST API. Register your own copy of twecoll on http://dev.twitter.com and copy the consumer key and secret to .twecoll in two separate rows. Place that file in your home directory.
 
+The first time you run a twecoll command, it will retrieve the oauth token and secret. Follow the instructions on the console.
 
-## Downloading Favorites
+## Examples
+
+#### Download and Purge Favorites
 Historically, this was twecoll's main use: download all favorited tweets in a file for search purposes. Let's take the handle 'jdevoo' as an example.
 
 ```
@@ -31,8 +36,7 @@ $ twecoll favorites -p jdevoo
 
 This is the only command that alters account data. You will need to select the Read+Write permission model for this to work when registering twecoll.
 
-
-## Downloading Tweets
+#### Downloading Tweets
 Twecoll can download up to 3000 tweets for a handle or run search queries.
 
 ```
@@ -48,9 +52,8 @@ $ twecoll tweets -q "#dg2g"
 
 This will also generate a .twt file name with the url-encoded search string.
 
-
-## Generating a Twitter Graph
-It is possible to generate a GML file of your first and second degree relationships on Twitter. This is a multi-step process that takes time due to API throttling by Twitter. In order to generate the graph, twecoll retrieves the handle's friends and all friends-of-friends (2nd degree relationships). It then calculates the relations between those, ignoring 2nd degree relationships to which the handle is not connected. In other words, it looks only for relationships among the friends of the handle supplied to it.
+#### Generating a Graph
+It is possible to generate a GML file of your first and second degree relationships on Twitter. This is a multi-step process that takes time due to API throttling by Twitter. In order to generate the graph, twecoll retrieves the handle's friends (or followers) and all friends-of-friends (2nd degree relationships). It then calculates the relations between those, ignoring 2nd degree relationships to which the handle is not connected. In other words, it looks only for friend relationships among the friends/followers of the handle or query tweets initially supplied.
 
 First retrieve the handle details
 
@@ -71,13 +74,16 @@ $ twecoll edgelist jdevoo
 ```
 
 This generates a jdevoo.gml file in Graph Model Language. If you have installed the python version of igraph, a .png file will also be generated with a visualization of the GML data. You can also use other packages to visualize your GML file, e.g. Gephi.
-The GML file will include friends and followers as properties. If followers is not zero, the friends-to-followers ratio will be calculated. If memberships are available, they will also be part of node attributes.
+The GML file will include friends and followers as properties. If followers is not zero, the friends-to-followers and listed-to-followers ratios will be calculated.
 
 ## Usage
+
+Twecoll has built-in help, version and API status switches invoked with -h, -v and -s respectively. Each command can also be invoked with the help switch for additional information about its sub-options.
+
 ```
 $ twecoll -h
 usage: twecoll [-h] [-v] [-s]
-               {init,fetch,memberships,tweets,favorites,edgelist} ...
+               {init,fetch,tweets,favorites,edgelist} ...
                screen_name
 
 Twitter Collection Tool
@@ -91,10 +97,9 @@ optional arguments:
   -s, --stats           show Twitter API stats and exit
 
 sub-commands:
-  {init,fetch,memberships,metrics,tweets,favorites,edgelist}
+  {init,fetch,metrics,tweets,favorites,edgelist}
     init                retrieve friends data for screen_name
     fetch               retrieve friends of handles in .dat file
-    memberships         retrieve memberships
     tweets              retrieve tweets
     favorites           retrieve favorites
     edgelist            generate graph in GML format
@@ -108,3 +113,5 @@ sub-commands:
 	- Added option to init to retrieve followers instead of friends
 * Version 1.3
         - simplified metrics now included in GML file
+* Version 1.4
+        - Simplified membership retrieval and improved graphs

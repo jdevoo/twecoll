@@ -21,7 +21,6 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 '''
 
-from collections import namedtuple
 import argparse
 import urlparse
 import urllib2
@@ -39,23 +38,26 @@ import csv
 import re
 import codecs
 
-__version__     = '1.3'
+__version__     = '1.4'
 ALPHANUM        = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
 IMG_DIR     = 'img'
 TT_EXT      = '.dat'
 FDAT_EXT    = '.f'
-MDAT_EXT    = '.m'
 FAV_EXT     = '.fav'
 TWT_EXT     = '.twt'
 FMAX        = 3000
 EDG_EXT     = '.gml' # Graph Modeling Language
 GRPH_EXT    = '.png'
 WAIT_CODES  = (400, 503, 429)
-RETRY_CODES = (500, 502)
+RETRY_CODES = (500, 502, 110)
 SKIP_CODES  = (401, 404)
 RL_WINDOW   = 15*60 # Rate limiting timeout
+
+from collections import namedtuple
+Consumer = namedtuple('Consumer', 'key secret')
+Token = namedtuple('Token', 'key secret')
 
 def _quote(text):
   return urllib.quote(text, '-._~')
@@ -76,9 +78,6 @@ def _parse_uri(req):
       uri = url
       query = ''
   return method, uri, query
-
-Consumer = namedtuple('Consumer', 'key secret')
-Token = namedtuple('Token', 'key secret')
 
 class Request(urllib2.Request):
   def __init__(self, url, \
@@ -213,38 +212,24 @@ class CursorError(urllib2.HTTPError):
     self.cursor = cursor
     self.res = res
 
-# Results are given in groups of 20
-def _memberships(param, c=None, init=None):
-  res = init or 0
+# Results are given in groups of 5,000
+def _ids(relation, param, c=None, init=None):
+  res = init or []
   cursor = c or -1
   while True:
     try:
-      url = 'https://api.twitter.com/1.1/lists/memberships.json?%s&cursor=%s'
-      conn = urllib2.urlopen(url % (param, cursor))
+      url = 'https://api.twitter.com/1.1/%s/ids.json?%s&cursor=%s'
+      conn = urllib2.urlopen(url % (relation, param, cursor))
     except urllib2.HTTPError, e:
       raise CursorError(e.code, cursor, res)
     data = json.loads(conn.read())
     conn.close()
-    res = res + len(data['lists'])
+    res = res + data['ids']
     if data['next_cursor'] != 0:
       cursor = data['next_cursor']
     else:
       break
   return res
-
-# Results are given in groups of 5,000
-def _ids(relation, param, cursor=-1):
-  try:
-    url = 'https://api.twitter.com/1.1/%s/ids.json?%s&cursor=%s'
-    conn = urllib2.urlopen(url % (relation, param, cursor))
-  except:
-    raise
-  data = json.loads(conn.read())
-  conn.close()
-  if data['next_cursor'] != 0:
-    return data['ids'] + _ids(relation, param, data['next_cursor'])
-  else:
-    return data['ids']
 
 def init(args):
   if args.query:
@@ -253,8 +238,25 @@ def init(args):
       bag += re.findall(r'@([\w]+)', tweet.lower())
     bag = list(set(bag))
   else:
-    bag = [args.screen_name] + \
-      _ids('followers' if args.followers else 'friends', 'screen_name='+args.screen_name)
+    cursor = None
+    res = None
+    while True:
+      try:
+        bag = [args.screen_name] + \
+          _ids('followers' if args.followers else 'friends', \
+            'screen_name='+args.screen_name, cursor, res)
+        break
+      except CursorError, e:
+        if e.code in WAIT_CODES:
+          sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume...' % \
+            (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
+          time.sleep(RL_WINDOW+random.randint(10,60))
+          cursor = e.cursor
+          res = e.res
+          sys.stderr.write('\n')
+          continue
+        else:
+          raise
   filename = args.screen_name+TT_EXT
   if not args.force and os.path.isfile(filename):
     f = open(filename, 'r+')
@@ -307,18 +309,31 @@ def init(args):
         _fetch_img(user_id, avatar)
       except:
         avatar = ''
-    f.write(user_id+
-      ','+name+
-      ','+str(data['friends_count'])+
-      ','+str(data['followers_count'])+
-      ','+str(data['statuses_count'])+
-      ','+url.encode('ascii', 'replace')+
+    f.write(user_id+ \
+      ','+name+ \
+      ','+str(data['friends_count'])+ \
+      ','+str(data['followers_count'])+ \
+      ','+str(data['listed_count'])+ \
+      ','+str(data['statuses_count'])+ \
+      ','+url.encode('ascii', 'replace')+ \
       ','+avatar+'\n')
 
+def _draw(screen_name):
+  import igraph
+  import colorsys
+  g = igraph.load(screen_name+EDG_EXT)
+  width = height = math.log(g.vcount())*340
+  M = max(g.clusters().membership)
+  HSV_tuples = [(t*1.0/M, 0.5, 1.0) for t in range(M)]
+  RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
+  g.vs['color'] = [RGB_tuples[m-1] for m in g.clusters().membership]
+  g.es['color'] = [g.vs['color'][e.target] for e in g.es]
+  igraph.plot(g, \
+    screen_name+GRPH_EXT, \
+    layout=g.layout('rt_circular'), bbox=(width, height), margin=40)
+
 def edgelist(args):
-  dat = {item[0]:[item[1], item[2], item[3]] \
-    for item in csv.reader(open(args.screen_name+TT_EXT))}
-  vert_count = len(dat)
+  dat = {item[0]:item[1:6] for item in csv.reader(open(args.screen_name+TT_EXT))}
   if not args.query:
     id0 = [user_id for user_id, val in dat.iteritems() if val[0] == args.screen_name][0]
   e = open(args.screen_name+EDG_EXT, 'w')
@@ -326,16 +341,20 @@ def edgelist(args):
   for user_id, val in dat.iteritems():
     if not args.ego and val[0] == args.screen_name:
       continue
-    e.write('  node [\n    id %s\n    label "%s"\n    friends %s\n    followers %s' % \
-      (user_id, val[0], val[1], val[2]))
+    e.write('''  node [
+    id %s
+    label "%s"
+    friends %s
+    followers %s
+    listed %s
+    statuses %s''' % (user_id, val[0], val[1], val[2], val[3], val[4]))
     if float(val[2]) > 0:
       e.write('\n    ffr %.4f' % (float(val[1])/float(val[2])))
-    filename = FDAT_DIR+'/'+str(user_id)+MDAT_EXT
-    if os.path.isfile(filename):
-      m =  open(filename).readline().strip()
-      e.write('\n    memberships %s' % m)
-      if float(val[2]) > 0:
-        e.write('\n    lfr %.4f' % (float(m)/float(val[2])))
+      e.write('\n    lfr %.4f' % (float(val[3])/float(val[2])))
+    if not os.path.isfile(FDAT_DIR+'/'+user_id+FDAT_EXT):
+      e.write('\n    shape "hidden"')
+    else:
+      e.write('\n    shape "circle"')
     e.write('\n  ]\n')
   for id1 in dat.keys():
     if not args.query and id1 == id0:
@@ -358,24 +377,20 @@ def edgelist(args):
   e.write(']\n')
   e.close()
   try:
-    import igraph
+    _draw(args.screen_name)
   except ImportError:
     sys.stdout.write('Visualization skipped.\n')
     raise
-  else:
-    g = igraph.load(args.screen_name+EDG_EXT)
-    g.vs['color'] = ['#00aced']
-    width = height = math.log(vert_count)*220
-    igraph.plot(g, args.screen_name+GRPH_EXT, \
-      layout=g.layout('kk'), \
-      bbox=(width, height))
 
 def fetch(args):
   dat = [item for item in csv.reader(open(args.screen_name+TT_EXT))]
   if not os.path.exists(FDAT_DIR):
     os.makedirs(FDAT_DIR)
+  cursor = None
+  res = None
   while len(dat) > 0:
-    item = dat.pop()
+    if cursor is None:
+      item = dat.pop()
     if int(item[2]) > args.count:
       sys.stdout.write('Skipping %s (%s %s)\n' % (item[1], item[2], 'friends'))
       continue
@@ -383,8 +398,10 @@ def fetch(args):
     if args.force or not os.path.isfile(filename):
       sys.stdout.write('Processing %s...\n' % item[0])
       try:
-        bag = _ids('friends', 'user_id='+str(item[0]))
-      except urllib2.HTTPError, e:
+        bag = _ids('friends', 'user_id='+str(item[0]), cursor, res)
+        cursor = None
+        res = None
+      except CursorError, e:
         if e.code in SKIP_CODES:
           sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item[0]))
           continue
@@ -399,8 +416,9 @@ def fetch(args):
           sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume...' % \
             (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
           sys.stdout.flush()
-          dat.append(item)
           time.sleep(RL_WINDOW+random.randint(10,60))
+          cursor = e.cursor
+          res = e.res
           sys.stdout.write('\n')
           continue
         else:
@@ -411,46 +429,50 @@ def fetch(args):
         f.write(str(item)+'\n')
       f.close()
 
+def _destroy(screen_name):
+  filename = screen_name+FAV_EXT
+  dat = [line[:20].strip() for line in open(filename, 'rU')]
+  while len(dat) > 0:
+    item = dat.pop()
+    sys.stdout.write('Purging %s...\n' % item)
+    try:
+      url = 'https://api.twitter.com/1.1/favorites/destroy.json'
+      data = {'id': item}
+      conn = urllib2.urlopen(url, urllib.urlencode(data))
+    except urllib2.HTTPError, e:
+      if e.code in SKIP_CODES:
+        sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item))
+        continue
+      elif e.code in RETRY_CODES:
+        sys.stdout.write('HTTPError %s. Deferred...' % e.code)
+        sys.stdout.flush()
+        time.sleep(random.randint(10,60))
+        dat.append(item)
+        sys.stdout.write('\n')
+        continue
+      elif e.code in WAIT_CODES:
+        sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume...' % \
+          (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
+        sys.stdout.flush()
+        time.sleep(RL_WINDOW+random.randint(10,60))
+        dat.append(item)
+        sys.stdout.write('\n')
+        continue
+      else:
+        sys.stdout.write('\n')
+        raise
+    data = json.loads(conn.read())
+    conn.close()
+
 def favorites(args):
-  filename = args.screen_name+FAV_EXT
   if args.purge:
     sys.stdout.write('Press any key to purge favorites or Ctrl-C to abort...')
     sys.stdout.flush()
     while not sys.stdin.read(1):
       pass
-    dat = [line[:20].strip() for line in open(filename, 'rU')]
-    while len(dat) > 0:
-      item = dat.pop()
-      sys.stdout.write('Purging %s...\n' % item)
-      try:
-        url = 'https://api.twitter.com/1.1/favorites/destroy.json'
-        data = {'id': item}
-        conn = urllib2.urlopen(url, urllib.urlencode(data))
-      except urllib2.HTTPError, e:
-        if e.code in SKIP_CODES:
-          sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item))
-          continue
-        elif e.code in RETRY_CODES:
-          sys.stdout.write('HTTPError %s. Deferred...' % e.code)
-          sys.stdout.flush()
-          time.sleep(random.randint(10,60))
-          dat.append(item)
-          sys.stdout.write('\n')
-          continue
-        elif e.code in WAIT_CODES:
-          sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume...' % \
-            (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
-          sys.stdout.flush()
-          time.sleep(RL_WINDOW+random.randint(10,60))
-          dat.append(item)
-          sys.stdout.write('\n')
-          continue
-        else:
-          sys.stdout.write('\n')
-          raise
-      data = json.loads(conn.read())
-      conn.close()
+    _destroy(ars.screen_name)
   else:
+    filename = args.screen_name+FAV_EXT
     f = codecs.open(filename, 'w', encoding='utf-8')
     max_id = None
     sys.stdout.write('Fetching favorites')
@@ -550,42 +572,10 @@ def tweets(args):
         tweet['created_at'], \
         tweet['text'].replace('\n', ' ')))
 
-def memberships(args):
-  dat = [item[0] for item in csv.reader(open(args.screen_name+TT_EXT))]
-  if not os.path.exists(FDAT_DIR):
-    os.makedirs(FDAT_DIR)
-  cursor = None
-  res = None
-  while len(dat) > 0:
-    if cursor is None:
-      user_id = dat.pop()
-    filename = FDAT_DIR+'/'+str(user_id)+MDAT_EXT
-    if args.force or not os.path.isfile(filename):
-      sys.stdout.write('Processing %s...\n' % user_id)
-      try:
-        m = _memberships('user_id='+user_id, cursor, res)
-        cursor = None
-        res = None
-      except CursorError, e:
-        if e.code in WAIT_CODES:
-          sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume...' % \
-            (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
-          time.sleep(RL_WINDOW+random.randint(10,60))
-          cursor = e.cursor
-          res = e.res
-          sys.stderr.write('\n')
-          continue
-        else:
-          sys.stdout.write('\n')
-          raise
-      f = open(filename, 'w')
-      f.write(str(m)+'\n')
-      f.close()
-
 class StatsAction(argparse.Action):
   def __call__(self, parse, namespace, values, option_string=None):
     _replace_opener()
-    url = 'https://api.twitter.com/1.1/application/rate_limit_status.json?resources=users,friends,lists,statuses,search,favorites'
+    url = 'https://api.twitter.com/1.1/application/rate_limit_status.json?resources=users,friends,statuses,search,favorites'
     conn = urllib2.urlopen(url)
     data = json.loads(conn.read())
     conn.close()
@@ -593,8 +583,6 @@ class StatsAction(argparse.Action):
       data['resources']['users']['/users/search']['remaining'])
     sys.stdout.write('fetch (%s), ' % \
       data['resources']['friends']['/friends/ids']['remaining'])
-    sys.stdout.write('memberships (%s), ' % \
-      data['resources']['lists']['/lists/memberships']['remaining'])
     sys.stdout.write('tweets (%s, -q %s), ' % ( \
       data['resources']['statuses']['/statuses/user_timeline/:id']['remaining'], \
       data['resources']['search']['/search/tweets']['remaining']))
@@ -628,12 +616,6 @@ def main():
   sp_fetch.add_argument('-c', dest='count', type=int, default=FMAX, \
     help='skip if above count (default: %(FMAX)i)' % globals())
   sp_fetch.set_defaults(func=fetch)
-
-  sp_memberships = sp.add_parser('memberships', \
-    help='retrieve memberships')
-  sp_memberships.add_argument('-f', '--force', action='store_true', \
-    help='ignore existing %s files (default: False)' % MDAT_EXT)
-  sp_memberships.set_defaults(func=memberships)
 
   sp_tweets = sp.add_parser('tweets', \
     help='retrieve tweets')

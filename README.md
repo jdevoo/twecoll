@@ -53,7 +53,7 @@ $ twecoll tweets -q "#dg2g"
 This will also generate a .twt file name with the url-encoded search string.
 
 #### Generating a Graph
-It is possible to generate a GML file of your first and second degree relationships on Twitter. This is a multi-step process that takes time due to API throttling by Twitter. In order to generate the graph, twecoll retrieves the handle's friends (or followers) and all friends-of-friends (2nd degree relationships). It then calculates the relations between those, ignoring 2nd degree relationships to which the handle is not connected. In other words, it looks only for friend relationships among the friends/followers of the handle or query tweets initially supplied.
+It is possible to generate a GML file of your first and second degree relationships on Twitter. This is a two-step process that takes time due to API throttling by Twitter. In order to generate the graph, twecoll retrieves the handle's friends (or followers) and all friends-of-friends (2nd degree relationships). It then calculates the relations between those, ignoring 2nd degree relationships to which the handle is not connected. In other words, it looks only for friend relationships among the friends/followers of the handle or query tweets initially supplied.
 
 First retrieve the handle details
 
@@ -74,7 +74,7 @@ $ twecoll edgelist jdevoo
 ```
 
 This generates a jdevoo.gml file in Graph Model Language. If you have installed the python version of igraph, a .png file will also be generated with a visualization of the GML data. You can also use other packages to visualize your GML file, e.g. Gephi.
-The GML file will include friends and followers as properties. If followers is not zero, the friends-to-followers and listed-to-followers ratios will be calculated.
+The GML file will include friends, followers, memberships and statuses counts as properties. If followers count is not equal to zero, the friends-to-followers and listed-to-followers ratios will be calculated.
 
 ## Usage
 
@@ -83,8 +83,7 @@ Twecoll has built-in help, version and API status switches invoked with -h, -v a
 ```
 $ twecoll -h
 usage: twecoll [-h] [-v] [-s]
-               {init,fetch,tweets,favorites,edgelist} ...
-               screen_name
+               {init,fetch,tweets,favorites,edgelist} ... screen_name
 
 Twitter Collection Tool
 
@@ -112,6 +111,6 @@ sub-commands:
 * Version 1.2
 	- Added option to init to retrieve followers instead of friends
 * Version 1.3
-        - simplified metrics now included in GML file
+ 	- simplified metrics now included in GML file
 * Version 1.4
-        - Simplified membership retrieval and improved graphs
+	- Simplified membership retrieval and improved graphs

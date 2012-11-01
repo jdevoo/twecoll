@@ -327,7 +327,9 @@ def _draw(screen_name):
   HSV_tuples = [(t*1.0/M, 0.5, 1.0) for t in range(M)]
   RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
   g.vs['color'] = [RGB_tuples[m-1] for m in g.clusters().membership]
+  g.vs['size'] = [50*v['friends']/max(g.vs['friends']) for v in g.vs]
   g.es['color'] = [g.vs['color'][e.target] for e in g.es]
+  g.es['width'] = [20*g.vs['statuses'][e.source]/max(g.vs['statuses']) for e in g.es]
   igraph.plot(g, \
     screen_name+GRPH_EXT, \
     layout=g.layout('rt_circular'), bbox=(width, height), margin=40)

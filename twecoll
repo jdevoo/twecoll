@@ -207,6 +207,23 @@ def _fetch_img(user_id, avatar):
   file.write(data)
   file.close()
 
+def resolve(args):
+  try:
+    if args.screen_name.isdigit():
+      url = 'https://api.twitter.com/1.1/users/show.json?user_id=%s'
+    else:
+      url = 'https://api.twitter.com/1.1/users/show.json?screen_name=%s'
+    conn = urllib2.urlopen(url % args.screen_name)
+  except urllib2.HTTPError, e:
+    sys.stdout.write('\n')
+    raise
+  data = json.loads(conn.read())
+  conn.close()
+  if args.screen_name.isdigit():
+    sys.stdout.write(data['screen_name']+'\n')
+  else:
+    sys.stdout.write(data['id_str']+'\n')
+
 class CursorError(urllib2.HTTPError):
   def __init__(self, code, cursor=None, res=None):
     urllib2.HTTPError.__init__(self, None, code, None, None, None)
@@ -328,8 +345,8 @@ def _draw(screen_name):
   HSV_tuples = [(t*1.0/M, 0.75, 1.0) for t in range(M)]
   RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
   g.vs['color'] = [RGB_tuples[m-1] for m in g.clusters().membership]
-  F = max(g.vs['friends'])
-  g.vs['size'] = [50*v['friends']/F for v in g.vs]
+  S = max(g.strength(mode='in'))
+  g.vs['size'] = [50*v/S for v in g.strength(mode='in')]
   g.es['color'] = [g.vs['color'][e.target] for e in g.es]
   E = max(g.es['weight'])
   g.es['width'] = [20*e['weight']/E for e in g.es]
@@ -338,7 +355,8 @@ def _draw(screen_name):
     layout=g.layout('rt_circular'), bbox=(width, height), margin=40)
 
 def edgelist(args):
-  dat = {item[0]:item[1:8] for item in csv.reader(open(args.screen_name+TT_EXT))}
+  dat = {item[0]:item[1:7]+[n] for n, item in enumerate(csv.reader(open(args.screen_name+TT_EXT)))}
+  print dat
   if not args.query:
     id0 = [user_id for user_id, val in dat.iteritems() if val[0] == args.screen_name][0]
   e = open(args.screen_name+EDG_EXT, 'w')
@@ -349,10 +367,11 @@ def edgelist(args):
     e.write('''  node [
     id %s
     label "%s"
+    rank %s
     statuses %s
     friends %s
     followers %s
-    listed %s''' % (user_id, val[0], val[4], val[1], val[2], val[3]))
+    listed %s''' % (user_id, val[0], val[6], val[4], val[1], val[2], val[3]))
     if float(val[2]) > 0:
       e.write('\n    ffr %.4f' % (float(val[1])/float(val[2])))
       e.write('\n    lfr %.4f' % (float(val[3])/float(val[2])))
@@ -606,6 +625,10 @@ def main():
   parser = argparse.ArgumentParser(description='Twitter Collection Tool', \
     version='%(prog)s v'+'%(__version__)s' % globals())
   sp = parser.add_subparsers(dest='cmd', title='sub-commands')
+
+  sp_resolve = sp.add_parser('resolve', \
+    help='retrieve user_id for screen_name or vice-versa')
+  sp_resolve.set_defaults(func=resolve)
 
   sp_init = sp.add_parser('init', \
     help='retrieve friends data for screen_name')

@@ -32,6 +32,7 @@ import json
 import sys
 import os
 import time
+import datetime
 import random
 import math
 import csv
@@ -47,7 +48,7 @@ TT_EXT      = '.dat'
 FDAT_EXT    = '.f'
 FAV_EXT     = '.fav'
 TWT_EXT     = '.twt'
-FMAX        = 3000
+FMAX        = 5000
 EDG_EXT     = '.gml' # Graph Modeling Language
 GRPH_EXT    = '.png'
 WAIT_CODES  = (400, 503, 429)
@@ -236,7 +237,6 @@ def init(args):
     bag = []
     for tweet in open(args.screen_name+TWT_EXT):
       bag += re.findall(r'@([\w]+)', tweet.lower())
-    bag = list(set(bag))
   else:
     cursor = None
     res = None
@@ -262,7 +262,7 @@ def init(args):
     f = open(filename, 'r+')
     for item in csv.reader(f):
       try:
-        bag.remove(item[1] if args.query else int(item[0]))
+        bag.remove(item[1] if args.query or item[1] == args.screen_name else int(item[0]))
       except:
         continue
   else:
@@ -315,6 +315,7 @@ def init(args):
       ','+str(data['followers_count'])+ \
       ','+str(data['listed_count'])+ \
       ','+str(data['statuses_count'])+ \
+      ','+str(data['created_at'])+ \
       ','+url.encode('ascii', 'replace')+ \
       ','+avatar+'\n')
 
@@ -324,18 +325,20 @@ def _draw(screen_name):
   g = igraph.load(screen_name+EDG_EXT)
   width = height = math.log(g.vcount())*340
   M = max(g.clusters().membership)
-  HSV_tuples = [(t*1.0/M, 0.5, 1.0) for t in range(M)]
+  HSV_tuples = [(t*1.0/M, 0.75, 1.0) for t in range(M)]
   RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
   g.vs['color'] = [RGB_tuples[m-1] for m in g.clusters().membership]
-  g.vs['size'] = [50*v['friends']/max(g.vs['friends']) for v in g.vs]
+  F = max(g.vs['friends'])
+  g.vs['size'] = [50*v['friends']/F for v in g.vs]
   g.es['color'] = [g.vs['color'][e.target] for e in g.es]
-  g.es['width'] = [20*g.vs['statuses'][e.source]/max(g.vs['statuses']) for e in g.es]
+  E = max(g.es['weight'])
+  g.es['width'] = [20*e['weight']/E for e in g.es]
   igraph.plot(g, \
     screen_name+GRPH_EXT, \
     layout=g.layout('rt_circular'), bbox=(width, height), margin=40)
 
 def edgelist(args):
-  dat = {item[0]:item[1:6] for item in csv.reader(open(args.screen_name+TT_EXT))}
+  dat = {item[0]:item[1:8] for item in csv.reader(open(args.screen_name+TT_EXT))}
   if not args.query:
     id0 = [user_id for user_id, val in dat.iteritems() if val[0] == args.screen_name][0]
   e = open(args.screen_name+EDG_EXT, 'w')
@@ -346,10 +349,10 @@ def edgelist(args):
     e.write('''  node [
     id %s
     label "%s"
+    statuses %s
     friends %s
     followers %s
-    listed %s
-    statuses %s''' % (user_id, val[0], val[1], val[2], val[3], val[4]))
+    listed %s''' % (user_id, val[0], val[4], val[1], val[2], val[3]))
     if float(val[2]) > 0:
       e.write('\n    ffr %.4f' % (float(val[1])/float(val[2])))
       e.write('\n    lfr %.4f' % (float(val[3])/float(val[2])))
@@ -371,8 +374,11 @@ def edgelist(args):
         if dat.has_key(id2):
           if not args.query and not args.ego and id2 == id0:
             continue
-          e.write('  edge [\n    source %s\n    target %s\n    weight %.4f\n  ]\n' % \
-            (id1, id2, 1.0))
+          t = time.localtime()
+          c = time.strptime(dat[id1][5], "%a %b %d %H:%M:%S +0000 %Y")
+          d = datetime.timedelta(seconds=(time.mktime(t)-time.mktime(c))).days
+          e.write('  edge [\n    source %s\n    target %s\n    weight %s\n  ]\n' % \
+            (id1, id2, float(dat[id1][4])/d))
       f.close()
     else:
       sys.stdout.write('Missing data for %s\n' % dat[id1][0])

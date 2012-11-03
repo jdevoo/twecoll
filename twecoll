@@ -254,6 +254,7 @@ def init(args):
     bag = []
     for tweet in open(args.screen_name+TWT_EXT):
       bag += re.findall(r'@([\w]+)', tweet.lower())
+    bag = list(set(bag))
   else:
     cursor = None
     res = None
@@ -332,31 +333,40 @@ def init(args):
       ','+str(data['followers_count'])+ \
       ','+str(data['listed_count'])+ \
       ','+str(data['statuses_count'])+ \
-      ','+str(data['created_at'])+ \
+      ','+data['created_at']+ \
       ','+url.encode('ascii', 'replace')+ \
       ','+avatar+'\n')
 
-def _draw(screen_name):
+def _draw(args):
   import igraph
   import colorsys
-  g = igraph.load(screen_name+EDG_EXT)
+  g = igraph.load(args.screen_name+EDG_EXT)
   width = height = math.log(g.vcount())*340
-  M = max(g.clusters().membership)
+  comp = g.clusters(igraph.WEAK)
+  gc = comp.giant()
+  gc_size = gc.vcount()
+  gc_co = gc.community_walktrap()
+  gc_memb = igraph.community_to_membership(gc_co.merges, gc_size, gc_size-gc_co.optimal_count)
+  M = max(gc_memb)
   HSV_tuples = [(t*1.0/M, 0.75, 1.0) for t in range(M)]
   RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
-  g.vs['color'] = [RGB_tuples[m-1] for m in g.clusters().membership]
-  S = max(g.strength(mode='in'))
-  g.vs['size'] = [50*v/S for v in g.strength(mode='in')]
+  for v in gc.vs:
+    g.vs[v.index]['color'] = RGB_tuples[gc_memb[v.index]-1]
+  ID = max(g.vs.indegree())
+  g.vs['label_size'] = [max(12, 36*v.indegree()/ID) for v in g.vs]
   g.es['color'] = [g.vs['color'][e.target] for e in g.es]
   E = max(g.es['weight'])
-  g.es['width'] = [20*e['weight']/E for e in g.es]
+  g.es['width'] = [max(1, (not args.transparent)*10*e['weight']/E) for e in g.es]
+  for v in g.vs:
+    filename = '%s/%i%s' % (FDAT_DIR, v['id'], FDAT_EXT)
+    if not os.path.isfile(filename):
+      v['color'] = (0, 0, 0)
   igraph.plot(g, \
-    screen_name+GRPH_EXT, \
-    layout=g.layout('rt_circular'), bbox=(width, height), margin=40)
+    args.screen_name+GRPH_EXT, \
+    layout=g.layout(args.layout), bbox=(width, height), margin=40)
 
 def edgelist(args):
   dat = {item[0]:item[1:7]+[n] for n, item in enumerate(csv.reader(open(args.screen_name+TT_EXT)))}
-  print dat
   if not args.query:
     id0 = [user_id for user_id, val in dat.iteritems() if val[0] == args.screen_name][0]
   e = open(args.screen_name+EDG_EXT, 'w')
@@ -371,14 +381,16 @@ def edgelist(args):
     statuses %s
     friends %s
     followers %s
-    listed %s''' % (user_id, val[0], val[6], val[4], val[1], val[2], val[3]))
+    listed %s''' % (user_id, val[0], val[6]+1, val[4], val[1], val[2], val[3]))
     if float(val[2]) > 0:
-      e.write('\n    ffr %.4f' % (float(val[1])/float(val[2])))
-      e.write('\n    lfr %.4f' % (float(val[3])/float(val[2])))
-    if not os.path.isfile(FDAT_DIR+'/'+user_id+FDAT_EXT):
-      e.write('\n    shape "hidden"')
+      ffr = float(val[1])/float(val[2])
+      lfr = float(val[3])/float(val[2])
+      e.write('\n    ffr %.4f' % ffr)
+      e.write('\n    lfr %.4f' % lfr)
+    if ffr < 1:
+      e.write('\n    shape "triangle-up"')
     else:
-      e.write('\n    shape "circle"')
+      e.write('\n    shape "triangle-down"')
     e.write('\n  ]\n')
   for id1 in dat.keys():
     if not args.query and id1 == id0:
@@ -404,7 +416,7 @@ def edgelist(args):
   e.write(']\n')
   e.close()
   try:
-    _draw(args.screen_name)
+    _draw(args)
   except ImportError:
     sys.stdout.write('Visualization skipped.\n')
     raise
@@ -595,9 +607,11 @@ def tweets(args):
         else:
           continue
       max_id = min(max_id, tweet['id']) or tweet['id']
-      f.write('%30s %s\n' % ( \
-        tweet['created_at'], \
-        tweet['text'].replace('\n', ' ')))
+      if args.query:
+        f.write('%30s @%-20s %s\n' % (tweet['created_at'], \
+          tweet['user']['screen_name'], tweet['text'].replace('\n', ' ')))
+      else:
+        f.write('%30s %s\n' % (tweet['created_at'], tweet['text'].replace('\n', ' ')))
 
 class StatsAction(argparse.Action):
   def __call__(self, parse, namespace, values, option_string=None):
@@ -661,9 +675,14 @@ def main():
   sp_favorites.set_defaults(func=favorites)
 
   sp_edgelist = sp.add_parser('edgelist', \
-    help='generate graph in GML format')
+    help='generate graph in GML format', \
+    description='Each vertex sets the following attributes: id, label, rank (ascending by order followed), statuses, friends, followers, and listed. Each edge has a weight attribute (number of tweets per day since account created). The graph uses community_walktrap() to identify communities for the vertices part of the giant component. The vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used. Edge width is proportional to the weight.')
   sp_edgelist.add_argument('-e', '--ego', action='store_true', \
     help='include screen_name (default: False)')
+  sp_edgelist.add_argument('-l', '--layout', default='rt_circular', \
+    help='igraph layout (default: rt_circular, supported: fr, kk, lgl, drl, grid_fr)')
+  sp_edgelist.add_argument('-t', '--transparent', action='store_true', \
+    help='hide edges in graph (default: False)')
   sp_edgelist.add_argument('-q', '--query', action='store_true', \
     help='argument is a query (default: screen_name)')
   sp_edgelist.set_defaults(func=edgelist)

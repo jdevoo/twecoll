@@ -342,7 +342,7 @@ def _draw(args):
   import colorsys
   g = igraph.load(args.screen_name+EDG_EXT)
   width = height = math.log(g.vcount())*340
-  comp = g.clusters(igraph.STRONG)
+  comp = g.clusters(igraph.WEAK if args.weak else igraph.STRONG)
   sys.stdout.write('Modularity = %.6f\n' % comp.modularity)
   gc = comp.giant()
   gc_size = gc.vcount()
@@ -357,7 +357,7 @@ def _draw(args):
       g.vs[v.index]['color'] = RGB_tuples[gc_memb[gc_vert.index(v.index)]]
     else:
       g.vs[v.index]['color'] = (.8, .8, .8)
-  ID = max(g.vs.indegree())
+  ID = max(g.vs.indegree()) or 1
   g.vs['label_size'] = [max(12, 36*v.indegree()/ID) for v in g.vs]
   g.es['color'] = [g.vs['color'][e.target] for e in g.es]
   E = max(g.es['weight'])
@@ -681,11 +681,13 @@ def main():
 
   sp_edgelist = sp.add_parser('edgelist', \
     help='generate graph in GML format', \
-    description='Each vertex sets the following attributes: id, label, rank (ascending by order followed), statuses, friends, followers, and listed. Each edge has a weight attribute (number of tweets per day since account created). The graph uses community_walktrap() to identify communities for the vertices part of the giant component. The vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used. Edge width is proportional to the weight.')
+    description='Vertices have the following attributes: id, label, rank (ascending by order followed), statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices are colored according to their membership to a particular community. Community finding is based on the walktrap method. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.')
   sp_edgelist.add_argument('-e', '--ego', action='store_true', \
     help='include screen_name (default: False)')
   sp_edgelist.add_argument('-l', '--layout', default='rt_circular', \
     help='igraph layout (default: rt_circular, supported: fr, kk, lgl, drl, grid_fr)')
+  sp_edgelist.add_argument('-w', '--weak', action='store_true', \
+    help='use weak ties to isolate clusters (default: False)')
   sp_edgelist.add_argument('-t', '--transparent', action='store_true', \
     help='hide edges in graph (default: False)')
   sp_edgelist.add_argument('-q', '--query', action='store_true', \

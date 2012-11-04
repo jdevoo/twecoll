@@ -256,8 +256,7 @@ def init(args):
       bag += re.findall(r'@([\w]+)', tweet.lower())
     bag = list(set(bag))
   else:
-    cursor = None
-    res = None
+    cursor = res = None
     while True:
       try:
         bag = [args.screen_name] + \
@@ -306,8 +305,8 @@ def init(args):
         sys.stdout.write('\n')
         continue
       elif e.code in WAIT_CODES:
-        sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume...' % \
-          (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
+        sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
+          (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(bag)+1))
         sys.stdout.flush()
         bag.append(item)
         time.sleep(RL_WINDOW+random.randint(10,60))
@@ -430,8 +429,7 @@ def fetch(args):
   dat = [item for item in csv.reader(open(args.screen_name+TT_EXT))]
   if not os.path.exists(FDAT_DIR):
     os.makedirs(FDAT_DIR)
-  cursor = None
-  res = None
+  cursor = res = None
   while len(dat) > 0:
     if cursor is None:
       item = dat.pop()
@@ -443,22 +441,23 @@ def fetch(args):
       sys.stdout.write('Processing %s...\n' % item[0])
       try:
         bag = _ids('friends', 'user_id='+str(item[0]), cursor, res)
-        cursor = None
-        res = None
+        cursor = res = None
       except CursorError, e:
         if e.code in SKIP_CODES:
           sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item[0]))
+          cursor = res = None
           continue
         elif e.code in RETRY_CODES:
           sys.stdout.write('HTTPError %s with %s. Deferred...' % (e.code, item[0]))
           sys.stdout.flush()
           dat.append(item)
           time.sleep(random.randint(10,60))
+          cursor = res = None
           sys.stdout.write('\n')
           continue
         elif e.code in WAIT_CODES:
-          sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume...' % \
-            (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
+          sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
+            (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(dat)+1))
           sys.stdout.flush()
           time.sleep(RL_WINDOW+random.randint(10,60))
           cursor = e.cursor
@@ -495,8 +494,8 @@ def _destroy(screen_name):
         sys.stdout.write('\n')
         continue
       elif e.code in WAIT_CODES:
-        sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume...' % \
-          (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
+        sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
+          (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(dat)+1))
         sys.stdout.flush()
         time.sleep(RL_WINDOW+random.randint(10,60))
         dat.append(item)
@@ -681,7 +680,7 @@ def main():
 
   sp_edgelist = sp.add_parser('edgelist', \
     help='generate graph in GML format', \
-    description='Vertices have the following attributes: id, label, rank (ascending by order followed), statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices are colored according to their membership to a particular community. Community finding is based on the walktrap method. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.')
+    description='Vertices have the following attributes: id, label, rank (ascending by order followed), statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on the walktrap method. Black is used for vertices with more than %s friends or set to private. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.' % FMAX)
   sp_edgelist.add_argument('-e', '--ego', action='store_true', \
     help='include screen_name (default: False)')
   sp_edgelist.add_argument('-l', '--layout', default='rt_circular', \

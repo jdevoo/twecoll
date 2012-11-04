@@ -53,7 +53,7 @@ EDG_EXT     = '.gml' # Graph Modeling Language
 GRPH_EXT    = '.png'
 WAIT_CODES  = (400, 503, 429)
 RETRY_CODES = (500, 502, 110)
-SKIP_CODES  = (401, 404)
+SKIP_CODES  = (401, 403, 404)
 RL_WINDOW   = 15*60 # Rate limiting timeout
 
 from collections import namedtuple
@@ -342,21 +342,26 @@ def _draw(args):
   import colorsys
   g = igraph.load(args.screen_name+EDG_EXT)
   width = height = math.log(g.vcount())*340
-  comp = g.clusters(igraph.WEAK)
+  comp = g.clusters(igraph.STRONG)
+  sys.stdout.write('Modularity = %.6f\n' % comp.modularity)
   gc = comp.giant()
   gc_size = gc.vcount()
-  gc_co = gc.community_walktrap()
+  gc_vert = comp[comp.sizes().index(gc_size)]
+  gc_co = gc.community_walktrap(weights=g.es['weight'])
   gc_memb = igraph.community_to_membership(gc_co.merges, gc_size, gc_size-gc_co.optimal_count)
-  M = max(gc_memb)
+  M = max(gc_memb)+1
   HSV_tuples = [(t*1.0/M, 0.75, 1.0) for t in range(M)]
   RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
-  for v in gc.vs:
-    g.vs[v.index]['color'] = RGB_tuples[gc_memb[v.index]-1]
+  for v in g.vs:
+    if v.index in gc_vert:
+      g.vs[v.index]['color'] = RGB_tuples[gc_memb[gc_vert.index(v.index)]]
+    else:
+      g.vs[v.index]['color'] = (.8, .8, .8)
   ID = max(g.vs.indegree())
   g.vs['label_size'] = [max(12, 36*v.indegree()/ID) for v in g.vs]
   g.es['color'] = [g.vs['color'][e.target] for e in g.es]
   E = max(g.es['weight'])
-  g.es['width'] = [max(1, (not args.transparent)*10*e['weight']/E) for e in g.es]
+  g.es['width'] = [(not args.transparent)*max(1, 10*e['weight']/E) for e in g.es]
   for v in g.vs:
     filename = '%s/%i%s' % (FDAT_DIR, v['id'], FDAT_EXT)
     if not os.path.isfile(filename):

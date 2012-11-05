@@ -346,16 +346,16 @@ def _draw(args):
   gc = comp.giant()
   gc_size = gc.vcount()
   gc_vert = comp[comp.sizes().index(gc_size)]
-  gc_co = gc.community_walktrap(weights=g.es['weight'])
-  gc_memb = igraph.community_to_membership(gc_co.merges, gc_size, gc_size-gc_co.optimal_count)
-  M = max(gc_memb)+1
+  cim = gc.community_infomap(edge_weights=gc.es['weight'], vertex_weights=gc.vs['rank'])
+  M = max(cim.membership)+1
   HSV_tuples = [(t*1.0/M, 0.75, 1.0) for t in range(M)]
   RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
   for v in g.vs:
-    if v.index in gc_vert:
-      g.vs[v.index]['color'] = RGB_tuples[gc_memb[gc_vert.index(v.index)]]
+    gc_v = gc.vs.select(id_eq=v['id'])
+    if len(gc_v) > 0:
+      v['color'] = RGB_tuples[cim.membership[gc_v[0].index]]
     else:
-      g.vs[v.index]['color'] = (.8, .8, .8)
+      v['color'] = (.8, .8, .8)
   ID = max(g.vs.indegree()) or 1
   g.vs['label_size'] = [max(12, 36*v.indegree()/ID) for v in g.vs]
   g.es['color'] = [g.vs['color'][e.target] for e in g.es]
@@ -367,7 +367,12 @@ def _draw(args):
       v['color'] = (0, 0, 0)
   igraph.plot(g, \
     args.screen_name+GRPH_EXT, \
-    layout=g.layout(args.layout), bbox=(width, height), margin=40)
+    layout=g.layout(args.layout), bbox=(width, height), margin=50)
+
+def _days(created):
+  t = time.localtime()
+  c = time.strptime(created, "%a %b %d %H:%M:%S +0000 %Y")
+  return datetime.timedelta(seconds=(time.mktime(t)-time.mktime(c))).days
 
 def edgelist(args):
   dat = {item[0]:item[1:7]+[n] for n, item in enumerate(csv.reader(open(args.screen_name+TT_EXT)))}
@@ -378,6 +383,7 @@ def edgelist(args):
   for user_id, val in dat.iteritems():
     if not args.ego and val[0] == args.screen_name:
       continue
+    rank = 0 if val[0] == args.screen_name else val[6]+1
     e.write('''  node [
     id %s
     label "%s"
@@ -385,7 +391,7 @@ def edgelist(args):
     statuses %s
     friends %s
     followers %s
-    listed %s''' % (user_id, val[0], val[6]+1, val[4], val[1], val[2], val[3]))
+    listed %s''' % (user_id, val[0], rank, val[4], val[1], val[2], val[3]))
     if float(val[2]) > 0:
       ffr = float(val[1])/float(val[2])
       lfr = float(val[3])/float(val[2])
@@ -400,7 +406,8 @@ def edgelist(args):
     if not args.query and id1 == id0:
       continue
     if not args.query and args.ego:
-      e.write('  edge [\n    source %s\n    target %s\n  ]\n' % (id0, id1))
+      e.write('  edge [\n    source %s\n    target %s\n    weight %s\n  ]\n' % \
+        (id0, id1, float(dat[id1][4])/_days(dat[id1][5])))
     filename = FDAT_DIR+'/'+str(id1)+FDAT_EXT
     if os.path.isfile(filename):
       f = open(filename)
@@ -409,11 +416,8 @@ def edgelist(args):
         if dat.has_key(id2):
           if not args.query and not args.ego and id2 == id0:
             continue
-          t = time.localtime()
-          c = time.strptime(dat[id1][5], "%a %b %d %H:%M:%S +0000 %Y")
-          d = datetime.timedelta(seconds=(time.mktime(t)-time.mktime(c))).days
           e.write('  edge [\n    source %s\n    target %s\n    weight %s\n  ]\n' % \
-            (id1, id2, float(dat[id1][4])/d))
+            (id1, id2, float(dat[id2][4])/_days(dat[id2][5])))
       f.close()
     else:
       sys.stdout.write('Missing data for %s\n' % dat[id1][0])
@@ -680,7 +684,7 @@ def main():
 
   sp_edgelist = sp.add_parser('edgelist', \
     help='generate graph in GML format', \
-    description='Vertices have the following attributes: id, label, rank (ascending by order followed), statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on the walktrap method. Black is used for vertices with more than %s friends or set to private. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.' % FMAX)
+    description='Vertices have the following attributes: id, label, rank (ascending by order followed), statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on infomap and applied to members of the giant component. Black is used for vertices with more than %s friends or set to private. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.' % FMAX)
   sp_edgelist.add_argument('-e', '--ego', action='store_true', \
     help='include screen_name (default: False)')
   sp_edgelist.add_argument('-l', '--layout', default='rt_circular', \
@@ -698,19 +702,19 @@ def main():
   parser.add_argument(dest='screen_name', action=QuoteAction, \
     help='Twitter screen name')
 
-  try:
-    args = parser.parse_args()
-    _replace_opener()
-    args.func(args)
-  except KeyboardInterrupt:
-    sys.stdout.write('\n')
-    return 2
-  except Exception, err:
-    sys.stdout.write(str(err)+'\n')
-    return 1
-  else:
-    sys.stdout.write('Done.\n')
-    return 0
+  #try:
+  args = parser.parse_args()
+  _replace_opener()
+  args.func(args)
+  #except KeyboardInterrupt:
+  #  sys.stdout.write('\n')
+  #  return 2
+  #except Exception, err:
+  #  sys.stdout.write(str(err)+'\n')
+  #  return 1
+  #else:
+  #  sys.stdout.write('Done.\n')
+  #  return 0
 
 if __name__ == '__main__':
   sys.exit(main())

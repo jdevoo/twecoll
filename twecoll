@@ -684,11 +684,11 @@ def main():
   sp_edgelist.add_argument('-e', '--ego', action='store_true', \
     help='include screen_name (default: False)')
   sp_edgelist.add_argument('-l', '--layout', default='rt_circular', \
-    help='igraph layout (default: rt_circular, supported: fr, kk, lgl, drl, grid_fr)')
+    help='igraph layout (default: rt_circular, supported: circle, fr, kk, lgl, drl, grid_fr)')
   sp_edgelist.add_argument('-w', '--weak', action='store_true', \
-    help='use weak ties to isolate clusters (default: False)')
+    help='use weak ties to isolate clusters (default: strong)')
   sp_edgelist.add_argument('-t', '--transparent', action='store_true', \
-    help='hide edges in graph (default: False)')
+    help='hide edges in graph (default: visible)')
   sp_edgelist.add_argument('-q', '--query', action='store_true', \
     help='argument is a query (default: screen_name)')
   sp_edgelist.set_defaults(func=edgelist)

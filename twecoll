@@ -346,7 +346,7 @@ def _draw(args):
   gc = comp.giant()
   gc_size = gc.vcount()
   gc_vert = comp[comp.sizes().index(gc_size)]
-  cim = gc.community_infomap(edge_weights=gc.es['weight'], vertex_weights=gc.vs['rank'])
+  cim = gc.community_infomap(edge_weights=gc.es['rank'], vertex_weights=gc.vs['rank'])
   M = max(cim.membership)+1
   HSV_tuples = [(t*1.0/M, 0.75, 1.0) for t in range(M)]
   RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
@@ -375,7 +375,7 @@ def _days(created):
   return datetime.timedelta(seconds=(time.mktime(t)-time.mktime(c))).days
 
 def edgelist(args):
-  dat = {item[0]:item[1:7]+[n] for n, item in enumerate(csv.reader(open(args.screen_name+TT_EXT)))}
+  dat = {item[0]:item[1:7]+[row] for row, item in enumerate(csv.reader(open(args.screen_name+TT_EXT)))}
   if not args.query:
     id0 = [user_id for user_id, val in dat.iteritems() if val[0] == args.screen_name][0]
   e = open(args.screen_name+EDG_EXT, 'w')
@@ -406,19 +406,29 @@ def edgelist(args):
     if not args.query and id1 == id0:
       continue
     if not args.query and args.ego:
-      e.write('  edge [\n    source %s\n    target %s\n    weight %s\n  ]\n' % \
-        (id0, id1, float(dat[id1][4])/_days(dat[id1][5])))
+      e.write('''  edge [
+    source %s
+    target %s
+    weight %s
+    rank %s
+  ]
+''' % (id0, id1, float(dat[id1][4])/_days(dat[id1][5]), val[6]+1))
     filename = FDAT_DIR+'/'+str(id1)+FDAT_EXT
     if os.path.isfile(filename):
-      f = open(filename)
-      for line in f:
+      fdat = open(filename).readlines()
+      for row, line in enumerate(fdat):
         id2 = line.strip()
         if dat.has_key(id2):
           if not args.query and not args.ego and id2 == id0:
             continue
-          e.write('  edge [\n    source %s\n    target %s\n    weight %s\n  ]\n' % \
-            (id1, id2, float(dat[id2][4])/_days(dat[id2][5])))
-      f.close()
+          rank = len(fdat)-row
+          e.write('''  edge [
+    source %s
+    target %s
+    weight %s
+    rank %s
+  ]
+''' % (id1, id2, float(dat[id2][4])/_days(dat[id2][5]), rank))
     else:
       sys.stdout.write('Missing data for %s\n' % dat[id1][0])
   e.write(']\n')
@@ -702,19 +712,19 @@ def main():
   parser.add_argument(dest='screen_name', action=QuoteAction, \
     help='Twitter screen name')
 
-  #try:
-  args = parser.parse_args()
-  _replace_opener()
-  args.func(args)
-  #except KeyboardInterrupt:
-  #  sys.stdout.write('\n')
-  #  return 2
-  #except Exception, err:
-  #  sys.stdout.write(str(err)+'\n')
-  #  return 1
-  #else:
-  #  sys.stdout.write('Done.\n')
-  #  return 0
+  try:
+    args = parser.parse_args()
+    _replace_opener()
+    args.func(args)
+  except KeyboardInterrupt:
+    sys.stdout.write('\n')
+    return 2
+  except Exception, err:
+    sys.stdout.write(str(err)+'\n')
+    return 1
+  else:
+    sys.stdout.write('Done.\n')
+    return 0
 
 if __name__ == '__main__':
   sys.exit(main())

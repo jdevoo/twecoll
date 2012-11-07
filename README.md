@@ -83,7 +83,7 @@ Twecoll has built-in help, version and API status switches invoked with -h, -v a
 ```
 $ twecoll -h
 usage: twecoll [-h] [-v] [-s]
-               {init,fetch,tweets,favorites,edgelist} ... screen_name
+               {resolve,init,fetch,tweets,favorites,edgelist} ... screen_name
 
 Twitter Collection Tool
 
@@ -93,10 +93,11 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -v, --version         show program's version number and exit
-  -s, --stats           show Twitter API stats and exit
+  -s, --stats           show Twitter throttling stats and exit
 
 sub-commands:
-  {init,fetch,metrics,tweets,favorites,edgelist}
+  {resolve,init,fetch,tweets,favorites,edgelist}
+    resolve             retrieve user_id for screen_name or vice-versa
     init                retrieve friends data for screen_name
     fetch               retrieve friends of handles in .dat file
     tweets              retrieve tweets

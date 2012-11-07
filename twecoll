@@ -346,7 +346,7 @@ def _draw(args):
   gc = comp.giant()
   gc_size = gc.vcount()
   gc_vert = comp[comp.sizes().index(gc_size)]
-  cim = gc.community_infomap(edge_weights=gc.es['rank'], vertex_weights=gc.vs['rank'])
+  cim = gc.community_infomap(edge_weights=gc.es['rank'], vertex_weights=gc.vs['listed'])
   M = max(cim.membership)+1
   HSV_tuples = [(t*1.0/M, 0.75, 1.0) for t in range(M)]
   RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)

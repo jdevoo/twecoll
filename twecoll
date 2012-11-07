@@ -659,7 +659,7 @@ def main():
   sp = parser.add_subparsers(dest='cmd', title='sub-commands')
 
   sp_resolve = sp.add_parser('resolve', \
-    help='retrieve user_id for screen_name or vice-versa')
+    help='retrieve user_id for screen_name or vice versa')
   sp_resolve.set_defaults(func=resolve)
 
   sp_init = sp.add_parser('init', \

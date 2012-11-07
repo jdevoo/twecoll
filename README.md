@@ -97,7 +97,7 @@ optional arguments:
 
 sub-commands:
   {resolve,init,fetch,tweets,favorites,edgelist}
-    resolve             retrieve user_id for screen_name or vice-versa
+    resolve             retrieve user_id for screen_name or vice versa
     init                retrieve friends data for screen_name
     fetch               retrieve friends of handles in .dat file
     tweets              retrieve tweets

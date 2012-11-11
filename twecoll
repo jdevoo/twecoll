@@ -340,7 +340,7 @@ def _draw(args):
   import igraph
   import colorsys
   g = igraph.load(args.screen_name+EDG_EXT)
-  width = height = math.log(g.vcount())*340
+  width = height = int(750+g.vcount()*4.73-g.vcount()**2*1.55e-3)
   comp = g.clusters(igraph.WEAK if args.weak else igraph.STRONG)
   sys.stdout.write('Modularity = %.6f\n' % comp.modularity)
   gc = comp.giant()

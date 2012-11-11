@@ -412,7 +412,7 @@ def edgelist(args):
     weight %s
     rank %s
   ]
-''' % (id0, id1, float(dat[id1][4])/_days(dat[id1][5]), val[6]+1))
+''' % (id0, id1, float(dat[id1][4])/_days(dat[id1][5]), float(dat[id1][6]+1)/(len(dat)-1)))
     filename = FDAT_DIR+'/'+str(id1)+FDAT_EXT
     if os.path.isfile(filename):
       fdat = open(filename).readlines()
@@ -421,7 +421,7 @@ def edgelist(args):
         if dat.has_key(id2):
           if not args.query and not args.ego and id2 == id0:
             continue
-          rank = len(fdat)-row
+          rank = float(len(fdat)-row)/len(fdat)
           e.write('''  edge [
     source %s
     target %s

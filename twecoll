@@ -341,7 +341,7 @@ def _draw(args):
   import colorsys
   g = igraph.load(args.screen_name+EDG_EXT)
   width = height = int(750+g.vcount()*4.73-g.vcount()**2*1.55e-3)
-  comp = g.clusters(igraph.WEAK if args.weak else igraph.STRONG)
+  comp = g.clusters(igraph.STRONG if args.strong else igraph.WEAK)
   sys.stdout.write('Modularity = %.6f\n' % comp.modularity)
   gc = comp.giant()
   gc_size = gc.vcount()
@@ -699,8 +699,8 @@ def main():
     help='include screen_name (default: False)')
   sp_edgelist.add_argument('-l', '--layout', default='rt_circular', \
     help='igraph layout (default: rt_circular, supported: circle, fr, kk, lgl, drl, grid_fr)')
-  sp_edgelist.add_argument('-w', '--weak', action='store_true', \
-    help='use weak ties to isolate clusters (default: strong)')
+  sp_edgelist.add_argument('-s', '--strong', action='store_true', \
+    help='use strong ties to isolate clusters (default: weak)')
   sp_edgelist.add_argument('-t', '--transparent', action='store_true', \
     help='hide edges in graph (default: visible)')
   sp_edgelist.add_argument('-q', '--query', action='store_true', \

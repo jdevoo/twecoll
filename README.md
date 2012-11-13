@@ -67,14 +67,14 @@ This generates a jdevoo.dat file. It also populates an img directory with avatar
 $ twecoll fetch jdevoo
 ```
 
-This populates the fdat directory. You can now generate the graph file.
+This populates the fdat directory. You can now generate the graph file using the defaults.
 
 ```
 $ twecoll edgelist jdevoo
 ```
 
 This generates a jdevoo.gml file in Graph Model Language. If you have installed the python version of igraph, a .png file will also be generated with a visualization of the GML data. You can also use other packages to visualize your GML file, e.g. Gephi.
-The GML file will include friends, followers, memberships and statuses counts as properties. If followers count is not equal to zero, the friends-to-followers and listed-to-followers ratios will be calculated.
+The GML file will include friends, followers, memberships, ranks and statuses counts as properties. If followers count is not equal to zero, the friends-to-followers and listed-to-followers ratios will be calculated.
 
 ## Usage
 
@@ -115,3 +115,5 @@ sub-commands:
  	- simplified metrics now included in GML file
 * Version 1.4
 	- Simplified membership retrieval and improved graphs
+* Version 1.5
+	- Changes to community finding and visualization

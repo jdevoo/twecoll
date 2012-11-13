@@ -39,7 +39,7 @@ import csv
 import re
 import codecs
 
-__version__     = '1.4'
+__version__     = '1.5'
 ALPHANUM        = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
@@ -50,7 +50,7 @@ FAV_EXT     = '.fav'
 TWT_EXT     = '.twt'
 FMAX        = 5000
 EDG_EXT     = '.gml' # Graph Modeling Language
-GRPH_EXT    = '.png'
+PLOT_EXT    = '.png'
 WAIT_CODES  = (400, 503, 429)
 RETRY_CODES = (500, 502, 110)
 SKIP_CODES  = (401, 403, 404)
@@ -366,9 +366,11 @@ def _draw(args):
     filename = '%s/%i%s' % (FDAT_DIR, v['id'], FDAT_EXT)
     if not os.path.isfile(filename):
       v['color'] = (0, 0, 0)
-  igraph.plot(g, \
-    args.screen_name+('_s' if args.strong else '_w')+GRPH_EXT, \
-    layout=g.layout(args.layout), bbox=(width, height), margin=50)
+  filename = args.screen_name + \
+    ('_s' if args.strong else '_w') + \
+    ('_t' if args.transparent else '') + \
+    PLOT_EXT
+  igraph.plot(g, filename, layout=g.layout(args.layout), bbox=(width, height), margin=50)
 
 def _days(created):
   t = time.localtime()

@@ -11,7 +11,6 @@ Place twecoll in your path and create a working directory to store the data coll
 * .twt: extension of tweets file (timestamp, tweet)
 * .fav: extension of favorites file (id, timestamp, user id, screen name, tweet)
 * .gml: extension of edgelist file (nodes and edges)
-* .png: edgelist graph image (igraph must be installed)
 * .f: friends data (fdat)
 
 Twecoll uses oauth and has been updated to support the 1.1 version of the Twitter REST API. Register your own copy of twecoll on http://dev.twitter.com and copy the consumer key and secret to .twecoll in two separate rows. Place that file in your home directory.
@@ -61,7 +60,7 @@ First retrieve the handle details
 $ twecoll init jdevoo
 ```
 
-This generates a jdevoo.dat file. It also populates an img directory with avatar images. Now, retrieve friends of each entry in the .dat file.
+This generates a jdevoo.dat file. It also populates an img directory with avatar images. It is also possible to initialize from a .twt file using the -q option. In this example, retrieve friends of each entry in the .dat file.
 
 ```
 $ twecoll fetch jdevoo

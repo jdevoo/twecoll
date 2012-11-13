@@ -50,7 +50,6 @@ FAV_EXT     = '.fav'
 TWT_EXT     = '.twt'
 FMAX        = 5000
 EDG_EXT     = '.gml' # Graph Modeling Language
-PLOT_EXT    = '.png'
 WAIT_CODES  = (400, 503, 429)
 RETRY_CODES = (500, 502, 110)
 SKIP_CODES  = (401, 403, 404)
@@ -369,7 +368,7 @@ def _draw(args):
   filename = args.screen_name + \
     ('_s' if args.strong else '_w') + \
     ('_t' if args.transparent else '') + \
-    PLOT_EXT
+    '.' + args.format
   igraph.plot(g, filename, layout=g.layout(args.layout), bbox=(width, height), margin=50)
 
 def _days(created):
@@ -698,6 +697,8 @@ def main():
   sp_edgelist = sp.add_parser('edgelist', \
     help='generate graph in GML format', \
     description='Vertices have the following attributes: id, label, rank (ascending by order followed), statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on infomap and applied to members of the giant component. Black is used for vertices with more than %s friends or set to private. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.' % FMAX)
+  sp_edgelist.add_argument('-f', '--format', default='png', \
+    help='graph output format (default: png, supported: pdf, svg, ps)')
   sp_edgelist.add_argument('-e', '--ego', action='store_true', \
     help='include screen_name (default: False)')
   sp_edgelist.add_argument('-l', '--layout', default='rt_circular', \

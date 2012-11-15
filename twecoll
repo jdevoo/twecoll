@@ -39,7 +39,7 @@ import csv
 import re
 import codecs
 
-__version__     = '1.5'
+__version__     = '1.6'
 ALPHANUM        = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
@@ -207,21 +207,25 @@ def _fetch_img(user_id, avatar):
   file.close()
 
 def resolve(args):
-  try:
-    if args.screen_name.isdigit():
-      url = 'https://api.twitter.com/1.1/users/show.json?user_id=%s'
+  for sn in args.screen_name:
+    try:
+      if sn.isdigit():
+        url = 'https://api.twitter.com/1.1/users/show.json?user_id=%s'
+      else:
+        url = 'https://api.twitter.com/1.1/users/show.json?screen_name=%s'
+      conn = urllib2.urlopen(url % sn)
+    except urllib2.HTTPError, e:
+      if e.code in SKIP_CODES:
+        sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, sn))
+        continue
+      else:
+        raise
+    data = json.loads(conn.read())
+    conn.close()
+    if sn.isdigit():
+      sys.stdout.write(data['screen_name']+'\n')
     else:
-      url = 'https://api.twitter.com/1.1/users/show.json?screen_name=%s'
-    conn = urllib2.urlopen(url % args.screen_name)
-  except urllib2.HTTPError, e:
-    sys.stdout.write('\n')
-    raise
-  data = json.loads(conn.read())
-  conn.close()
-  if args.screen_name.isdigit():
-    sys.stdout.write(data['screen_name']+'\n')
-  else:
-    sys.stdout.write(data['id_str']+'\n')
+      sys.stdout.write(data['id_str']+'\n')
 
 class CursorError(urllib2.HTTPError):
   def __init__(self, code, cursor=None, res=None):
@@ -338,7 +342,7 @@ def init(args):
 def _draw(args):
   import igraph
   import colorsys
-  g = igraph.load(args.screen_name+EDG_EXT)
+  g = igraph.load('_'.join(args.screen_name)+EDG_EXT)
   width = height = int(750+g.vcount()*4.73-g.vcount()**2*1.55e-3)
   comp = g.clusters(igraph.STRONG if args.strong else igraph.WEAK)
   sys.stdout.write('Modularity = %.6f\n' % comp.modularity)
@@ -365,7 +369,7 @@ def _draw(args):
     filename = '%s/%i%s' % (FDAT_DIR, v['id'], FDAT_EXT)
     if not os.path.isfile(filename):
       v['color'] = (0, 0, 0)
-  filename = args.screen_name + \
+  filename = '_'.join(args.screen_name) + \
     ('_s' if args.strong else '_w') + \
     ('_t' if args.transparent else '') + \
     '.' + args.format
@@ -377,23 +381,27 @@ def _days(created):
   return datetime.timedelta(seconds=(time.mktime(t)-time.mktime(c))).days
 
 def edgelist(args):
-  dat = {item[0]:item[1:7]+[row] for row, item in enumerate(csv.reader(open(args.screen_name+TT_EXT)))}
-  if not args.query:
-    id0 = [user_id for user_id, val in dat.iteritems() if val[0] == args.screen_name][0]
-  e = open(args.screen_name+EDG_EXT, 'w')
+  dat = {}
+  id0 = []
+  for sn in args.screen_name:
+    for row, item in enumerate(csv.reader(open(sn+TT_EXT))):
+      if not dat.has_key(item[0]):
+        dat[item[0]] = item[1:7]+[row]
+  id0 = [user_id for user_id, val in dat.iteritems() if val[0] in args.screen_name]
+  e = open('_'.join(args.screen_name)+EDG_EXT, 'w')
   e.write('graph [\n  directed 1\n')
   for user_id, val in dat.iteritems():
-    if not args.ego and val[0] == args.screen_name:
+    if not args.ego and val[0] in args.screen_name:
       continue
-    rank = 0 if val[0] == args.screen_name else val[6]+1
     e.write('''  node [
     id %s
     label "%s"
-    rank %s
     statuses %s
     friends %s
     followers %s
-    listed %s''' % (user_id, val[0], rank, val[4], val[1], val[2], val[3]))
+    listed %s''' % (user_id, val[0], val[4], val[1], val[2], val[3]))
+    if len(args.screen_name) == 1:
+      e.write('\n    rank %s' % (0 if val[0] in args.screen_name else val[6]+1))
     if float(val[2]) > 0:
       ffr = float(val[1])/float(val[2])
       lfr = float(val[3])/float(val[2])
@@ -405,23 +413,24 @@ def edgelist(args):
       e.write('\n    shape "triangle-down"')
     e.write('\n  ]\n')
   for id1 in dat.keys():
-    if not args.query and id1 == id0:
+    if id1 in id0:
       continue
-    if not args.query and args.ego:
-      e.write('''  edge [
+    if args.ego:
+      for idzero in id0:
+        e.write('''  edge [
     source %s
     target %s
     weight %s
     rank %s
   ]
-''' % (id0, id1, float(dat[id1][4])/_days(dat[id1][5]), float(dat[id1][6]+1)/(len(dat)-1)))
+''' % (idzero, id1, float(dat[id1][4])/_days(dat[id1][5]), float(dat[id1][6]+1)/(len(dat)-1)))
     filename = FDAT_DIR+'/'+str(id1)+FDAT_EXT
     if os.path.isfile(filename):
       fdat = open(filename).readlines()
       for row, line in enumerate(fdat):
         id2 = line.strip()
         if dat.has_key(id2):
-          if not args.query and not args.ego and id2 == id0:
+          if not args.ego and id2 in id0:
             continue
           rank = float(len(fdat)-row)/len(fdat)
           e.write('''  edge [
@@ -645,7 +654,7 @@ class StatsAction(argparse.Action):
     sys.stdout.write('fetch (%s), ' % \
       data['resources']['friends']['/friends/ids']['remaining'])
     sys.stdout.write('tweets (%s, -q %s), ' % ( \
-      data['resources']['statuses']['/statuses/user_timeline/:id']['remaining'], \
+      data['resources']['statuses']['/statuses/user_timeline']['remaining'], \
       data['resources']['search']['/search/tweets']['remaining']))
     sys.stdout.write('favorites (%s)\n' % \
       data['resources']['favorites']['/favorites/list']['remaining'])
@@ -653,7 +662,10 @@ class StatsAction(argparse.Action):
 
 class QuoteAction(argparse.Action):
   def __call__(self, parse, namespace, values, option_string=None):
-    setattr(namespace, self.dest, urllib.quote(values))
+    if isinstance(values, list):
+      setattr(namespace, self.dest, map(lambda v: urllib.quote(v), values))
+    else:
+      setattr(namespace, self.dest, urllib.quote(values))
 
 def main():
   parser = argparse.ArgumentParser(description='Twitter Collection Tool', \
@@ -662,6 +674,8 @@ def main():
 
   sp_resolve = sp.add_parser('resolve', \
     help='retrieve user_id for screen_name or vice versa')
+  sp_resolve.add_argument(dest='screen_name', nargs='+', action=QuoteAction, \
+    help='Twitter screen name')
   sp_resolve.set_defaults(func=resolve)
 
   sp_init = sp.add_parser('init', \
@@ -672,6 +686,8 @@ def main():
     help='extract handles from query (default: screen_name)')
   sp_init.add_argument('-f', '--force', action='store_true', \
     help='ignore existing %s file (default: False)' % TT_EXT)
+  sp_init.add_argument(dest='screen_name', action=QuoteAction, \
+    help='Twitter screen name')
   sp_init.set_defaults(func=init)
 
   sp_fetch = sp.add_parser('fetch', \
@@ -680,41 +696,47 @@ def main():
     help='ignore existing %s files (default: False)' % FDAT_EXT)
   sp_fetch.add_argument('-c', dest='count', type=int, default=FMAX, \
     help='skip if above count (default: %(FMAX)i)' % globals())
+  sp_fetch.add_argument(dest='screen_name', action=QuoteAction, \
+    help='Twitter screen name')
   sp_fetch.set_defaults(func=fetch)
 
   sp_tweets = sp.add_parser('tweets', \
     help='retrieve tweets')
   sp_tweets.add_argument('-q', '--query', action='store_true', \
     help='argument is a query (default: screen_name)')
+  sp_tweets.add_argument(dest='screen_name', action=QuoteAction, \
+    help='Twitter screen name')
   sp_tweets.set_defaults(func=tweets)
 
   sp_favorites = sp.add_parser('favorites', \
     help='retrieve favorites')
   sp_favorites.add_argument('-p', '--purge', action='store_true', \
     help='destroy favorites (default: False)')
+  sp_favorites.add_argument(dest='screen_name', action=QuoteAction, \
+    help='Twitter screen name')
   sp_favorites.set_defaults(func=favorites)
 
   sp_edgelist = sp.add_parser('edgelist', \
     help='generate graph in GML format', \
     description='Vertices have the following attributes: id, label, rank (ascending by order followed), statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on infomap and applied to members of the giant component. Black is used for vertices with more than %s friends or set to private. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.' % FMAX)
   sp_edgelist.add_argument('-f', '--format', default='png', \
-    help='graph output format (default: png, supported: pdf, svg, ps)')
+    choices=('png', 'pdf', 'svg', 'ps'), \
+    help='graph output format (default: png)')
   sp_edgelist.add_argument('-e', '--ego', action='store_true', \
     help='include screen_name (default: False)')
   sp_edgelist.add_argument('-l', '--layout', default='rt_circular', \
-    help='igraph layout (default: rt_circular, supported: circle, fr, kk, lgl, drl, grid_fr)')
+    choices=('rt_circular', 'circle', 'fr', 'kk'), \
+    help='igraph layout (default: rt_circular)')
   sp_edgelist.add_argument('-s', '--strong', action='store_true', \
     help='use strong ties to isolate clusters (default: weak)')
   sp_edgelist.add_argument('-t', '--transparent', action='store_true', \
     help='hide edges in graph (default: visible)')
-  sp_edgelist.add_argument('-q', '--query', action='store_true', \
-    help='argument is a query (default: screen_name)')
+  sp_edgelist.add_argument(dest='screen_name', nargs='+', action=QuoteAction, \
+    help='Twitter screen name')
   sp_edgelist.set_defaults(func=edgelist)
 
   parser.add_argument('-s', '--stats', action=StatsAction, nargs=0, \
     help='show Twitter throttling stats and exit')
-  parser.add_argument(dest='screen_name', action=QuoteAction, \
-    help='Twitter screen name')
 
   try:
     args = parser.parse_args()

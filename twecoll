@@ -668,8 +668,7 @@ class QuoteAction(argparse.Action):
       setattr(namespace, self.dest, urllib.quote(values))
 
 def main():
-  parser = argparse.ArgumentParser(description='Twitter Collection Tool', \
-    version='%(prog)s v'+'%(__version__)s' % globals())
+  parser = argparse.ArgumentParser(description='Twitter Collection Tool')
   sp = parser.add_subparsers(dest='cmd', title='sub-commands')
 
   sp_resolve = sp.add_parser('resolve', \
@@ -737,6 +736,8 @@ def main():
 
   parser.add_argument('-s', '--stats', action=StatsAction, nargs=0, \
     help='show Twitter throttling stats and exit')
+  parser.add_argument('-v', '--version', action='version', \
+    version='%(prog)s v'+'%(__version__)s' % globals())
 
   try:
     args = parser.parse_args()

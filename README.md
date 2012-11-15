@@ -82,12 +82,9 @@ Twecoll has built-in help, version and API status switches invoked with -h, -v a
 ```
 $ twecoll -h
 usage: twecoll [-h] [-v] [-s]
-               {resolve,init,fetch,tweets,favorites,edgelist} ... screen_name
+               {resolve,init,fetch,tweets,favorites,edgelist} ...
 
 Twitter Collection Tool
-
-positional arguments:
-  screen_name           Twitter screen name
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -116,3 +113,6 @@ sub-commands:
 	- Simplified membership retrieval and improved graphs
 * Version 1.5
 	- Changes to community finding and visualization
+* Version 1.6
+	- Added support for multiple arguments in edgelist
+

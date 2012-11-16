@@ -169,10 +169,10 @@ def _replace_opener():
     resp = opener.open(Request('https://api.twitter.com/oauth/request_token'))
     rtoken = urlparse.parse_qs(resp.read())
     rtoken = Token(rtoken['oauth_token'][0], rtoken['oauth_token_secret'][0])
-    sys.stdout.write('''TWITTER API AUTHENTICATION SETUP
+    sys.stderr.write('''TWITTER API AUTHENTICATION SETUP
 Open the following link in your browser and authorize me...
 '>>> https://api.twitter.com/oauth/authorize?oauth_token=%s\n''' % rtoken.key)
-    sys.stdout.write('What is the PIN? ')
+    sys.stderr.write('What is the PIN? ')
     verifier = sys.stdin.readline().rstrip('\r\n')
     opener = urllib2.build_opener(OAuthHandler(consumer, rtoken))
     resp = opener.open( \
@@ -183,7 +183,7 @@ Open the following link in your browser and authorize me...
     f.write(atoken.key+'\n')
     f.write(atoken.secret+'\n')
     f.close()
-    sys.stdout.write('Setup complete. Tokens added to %s\n' % filename)
+    sys.stderr.write('Setup complete. Tokens added to %s\n' % filename)
   opener = urllib2.build_opener(OAuthHandler(consumer, atoken))
   urllib2.install_opener(opener)
 
@@ -301,22 +301,22 @@ def init(args):
         sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item))
         continue
       elif e.code in RETRY_CODES:
-        sys.stdout.write('HTTPError %s with %s. Deferred...' % (e.code, item))
-        sys.stdout.flush()
+        sys.stderr.write('HTTPError %s with %s. Deferred...' % (e.code, item))
+        sys.stderr.flush()
         bag.append(item)
         time.sleep(random.randint(10,60))
-        sys.stdout.write('\n')
+        sys.stderr.write('\n')
         continue
       elif e.code in WAIT_CODES:
-        sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
+        sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
           (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(bag)+1))
-        sys.stdout.flush()
+        sys.stderr.flush()
         bag.append(item)
         time.sleep(RL_WINDOW+random.randint(10,60))
-        sys.stdout.write('\n')
+        sys.stderr.write('\n')
         continue
       else:
-        sys.stdout.write('\n')
+        sys.stderr.write('\n')
         raise
     data = json.loads(conn.read())
     conn.close()
@@ -447,7 +447,7 @@ def edgelist(args):
   try:
     _draw(args)
   except ImportError:
-    sys.stdout.write('Visualization skipped.\n')
+    sys.stderr.write('Visualization skipped.\n')
     raise
 
 def fetch(args):
@@ -473,24 +473,24 @@ def fetch(args):
           cursor = res = None
           continue
         elif e.code in RETRY_CODES:
-          sys.stdout.write('HTTPError %s with %s. Deferred...' % (e.code, item[0]))
-          sys.stdout.flush()
+          sys.stderr.write('HTTPError %s with %s. Deferred...' % (e.code, item[0]))
+          sys.stderr.flush()
           dat.append(item)
           time.sleep(random.randint(10,60))
           cursor = res = None
-          sys.stdout.write('\n')
+          sys.stderr.write('\n')
           continue
         elif e.code in WAIT_CODES:
-          sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
+          sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
             (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(dat)+1))
-          sys.stdout.flush()
+          sys.stderr.flush()
           time.sleep(RL_WINDOW+random.randint(10,60))
           cursor = e.cursor
           res = e.res
-          sys.stdout.write('\n')
+          sys.stderr.write('\n')
           continue
         else:
-          sys.stdout.write('\n')
+          sys.stderr.write('\n')
           raise
       f = open(filename, 'w')
       for item in bag:
@@ -512,30 +512,30 @@ def _destroy(screen_name):
         sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item))
         continue
       elif e.code in RETRY_CODES:
-        sys.stdout.write('HTTPError %s. Deferred...' % e.code)
-        sys.stdout.flush()
+        sys.stderr.write('HTTPError %s. Deferred...' % e.code)
+        sys.stderr.flush()
         time.sleep(random.randint(10,60))
         dat.append(item)
-        sys.stdout.write('\n')
+        sys.stderr.write('\n')
         continue
       elif e.code in WAIT_CODES:
-        sys.stdout.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
+        sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
           (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(dat)+1))
-        sys.stdout.flush()
+        sys.stderr.flush()
         time.sleep(RL_WINDOW+random.randint(10,60))
         dat.append(item)
-        sys.stdout.write('\n')
+        sys.stderr.write('\n')
         continue
       else:
-        sys.stdout.write('\n')
+        sys.stderr.write('\n')
         raise
     data = json.loads(conn.read())
     conn.close()
 
 def favorites(args):
   if args.purge:
-    sys.stdout.write('Press any key to purge favorites or Ctrl-C to abort...')
-    sys.stdout.flush()
+    sys.stderr.write('Press any key to purge favorites or Ctrl-C to abort...')
+    sys.stderr.flush()
     while not sys.stdin.read(1):
       pass
     _destroy(ars.screen_name)
@@ -543,8 +543,8 @@ def favorites(args):
     filename = args.screen_name+FAV_EXT
     f = codecs.open(filename, 'w', encoding='utf-8')
     max_id = None
-    sys.stdout.write('Fetching favorites')
-    sys.stdout.flush()
+    sys.stderr.write('Fetching favorites')
+    sys.stderr.flush()
     while True:
       try:
         url = 'https://api.twitter.com/1.1/favorites/list.json?count=%s&screen_name=%s'
@@ -553,32 +553,32 @@ def favorites(args):
         conn = urllib2.urlopen(url % (100, args.screen_name))
       except urllib2.HTTPError, e:
         if e.code in RETRY_CODES:
-          sys.stdout.write('\nHTTPError %s. Retrying' % e.code)
-          sys.stdout.flush()
+          sys.stderr.write('\nHTTPError %s. Retrying' % e.code)
+          sys.stderr.flush()
           time.sleep(random.randint(10,60))
-          sys.stdout.write('\n')
+          sys.stderr.write('\n')
           continue
         elif e.code in WAIT_CODES:
-          sys.stdout.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
+          sys.stderr.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
             (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
-          sys.stdout.flush()
+          sys.stderr.flush()
           time.sleep(RL_WINDOW+random.randint(10,60))
-          sys.stdout.write('\n')
+          sys.stderr.write('\n')
           continue
         else:
-          sys.stdout.write('\n')
+          sys.stderr.write('\n')
           raise
       data = json.loads(conn.read())
       conn.close()
-      sys.stdout.write('.')
-      sys.stdout.flush()
+      sys.stderr.write('.')
+      sys.stderr.flush()
       if len(data) == 0:
-        sys.stdout.write('\n')
+        sys.stderr.write('\n')
         return
       for tweet in data:
         if tweet['id'] == max_id:
           if len(data) == 1:
-            sys.stdout.write('\n')
+            sys.stderr.write('\n')
             return
           else:
             continue
@@ -593,8 +593,8 @@ def favorites(args):
 def tweets(args):
   f = codecs.open(args.screen_name+TWT_EXT, 'w', encoding='utf-8')
   max_id = None
-  sys.stdout.write('Fetching tweets')
-  sys.stdout.flush()
+  sys.stderr.write('Fetching tweets')
+  sys.stderr.flush()
   while True:
     try:
       if args.query:
@@ -606,32 +606,32 @@ def tweets(args):
       conn = urllib2.urlopen(url % args.screen_name)
     except urllib2.HTTPError, e:
       if e.code in RETRY_CODES:
-        sys.stdout.write('\nHTTPError %s. Retrying' % e.code)
-        sys.stdout.flush()
+        sys.stderr.write('\nHTTPError %s. Retrying' % e.code)
+        sys.stderr.flush()
         continue
       elif e.code in WAIT_CODES:
-        sys.stdout.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
+        sys.stderr.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
           (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
-        sys.stdout.flush()
+        sys.stderr.flush()
         time.sleep(RL_WINDOW+random.randint(10,60))
-        sys.stdout.write('\n')
+        sys.stderr.write('\n')
         continue
       else:
-        sys.stdout.write('\n')
+        sys.stderr.write('\n')
         raise
     data = json.loads(conn.read())
     if args.query:
       data = data['statuses']
     conn.close()
-    sys.stdout.write('.')
-    sys.stdout.flush()
+    sys.stderr.write('.')
+    sys.stderr.flush()
     if len(data) == 0:
-      sys.stdout.write('\n')
+      sys.stderr.write('\n')
       return
     for tweet in data:
       if tweet['id'] == max_id:
         if len(data) == 1:
-          sys.stdout.write('\n')
+          sys.stderr.write('\n')
           return
         else:
           continue
@@ -744,13 +744,13 @@ def main():
     _replace_opener()
     args.func(args)
   except KeyboardInterrupt:
-    sys.stdout.write('\n')
+    sys.stderr.write('\n')
     return 2
   except Exception, err:
-    sys.stdout.write(str(err)+'\n')
+    sys.stderr.write(str(err)+'\n')
     return 1
   else:
-    sys.stdout.write('Done.\n')
+    sys.stderr.write('Done.\n')
     return 0
 
 if __name__ == '__main__':

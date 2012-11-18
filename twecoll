@@ -343,11 +343,19 @@ def _draw(args):
   import igraph
   import colorsys
   g = igraph.load('_'.join(args.screen_name)+EDG_EXT)
+  sys.stdout.write('%s Handles\n%s Follow Relationships\n' % (g.vcount(), g.ecount()))
+  sys.stdout.write('Avg Shortest Path = %.6f\n' % g.average_path_length())
+  sys.stdout.write('In-Degree Distribution = (%.6f, %.6f)\n' % (g.degree_distribution(mode=igraph.IN).mean, g.degree_distribution(mode=igraph.IN).sd))
+  sys.stdout.write('Clustering Coefficient = %.6f\n' % g.transitivity_undirected())
+  sys.stdout.write('Degree Assortativity = %.6f\n' % g.assortativity_degree())
+  sys.stdout.write('Triad Census\n%s\n' % str(g.triad_census()))
   width = height = int(750+g.vcount()*4.73-g.vcount()**2*1.55e-3)
   comp = g.clusters(igraph.STRONG if args.strong else igraph.WEAK)
-  sys.stdout.write('Modularity = %.6f\n' % comp.modularity)
+  sys.stdout.write('Cluster Modularity = %.6f\n' % comp.modularity)
   gc = comp.giant()
   gc_size = gc.vcount()
+  sys.stdout.write('Fraction Handles in GC = %.2f%%\n' % (100.0*gc_size/g.vcount()))
+  sys.stdout.write('GC Diameter = %i (%.6f)\n' % (gc.diameter(), gc.diameter(weights=gc.es['rank'])))
   gc_vert = comp[comp.sizes().index(gc_size)]
   cim = gc.community_infomap(edge_weights=gc.es['rank'], vertex_weights=gc.vs['lfr'])
   M = max(cim.membership)+1
@@ -380,11 +388,16 @@ def _days(created):
   c = time.strptime(created, "%a %b %d %H:%M:%S +0000 %Y")
   return datetime.timedelta(seconds=(time.mktime(t)-time.mktime(c))).days
 
+def _skip_hash(iterable):
+  for line in iterable:
+    if not line.startswith('#'):
+      yield line
+
 def edgelist(args):
   dat = {}
   id0 = []
   for sn in args.screen_name:
-    for row, item in enumerate(csv.reader(open(sn+TT_EXT))):
+    for row, item in enumerate(csv.reader(_skip_hash(open(sn+TT_EXT)))):
       if not dat.has_key(item[0]):
         dat[item[0]] = item[1:7]+[row]
   id0 = [user_id for user_id, val in dat.iteritems() if val[0] in args.screen_name]

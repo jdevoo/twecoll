@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 '''
-Copyright (c) 2012 Jean-Paul de Vooght
-
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
 to deal in the Software without restriction, including without limitation
@@ -252,6 +250,25 @@ def _ids(relation, param, c=None, init=None):
       break
   return res
 
+def _members(param, c=None, init=None):
+  res = init or []
+  cursor = c or -1
+  while True:
+    try:
+      url = 'https://api.twitter.com/1.1/lists/members.json?%s&cursor=%s&include_entities=false&skip_status=true'
+      conn = urllib2.urlopen(url % (param, cursor))
+    except urllib2.HTTPError, e:
+      raise CursorError(e.code, cursor, res)
+    data = json.loads(conn.read())
+    conn.close()
+    for user in data['users']:
+      res.append(user['id'])
+    if data['next_cursor'] != 0:
+      cursor = data['next_cursor']
+    else:
+      break
+  return res
+
 def init(args):
   if args.query:
     bag = []
@@ -260,11 +277,15 @@ def init(args):
     bag = list(set(bag))
   else:
     cursor = res = None
+    if not args.slug:
+      type = 'followers' if args.followers else 'friends'
     while True:
       try:
-        bag = [args.screen_name] + \
-          _ids('followers' if args.followers else 'friends', \
-            'screen_name='+args.screen_name, cursor, res)
+        if args.slug:
+          bag = _members('slug='+args.slug+'&owner_screen_name='+args.screen_name, cursor, res)
+        else:
+          bag = [args.screen_name] + \
+            _ids(type, 'screen_name='+args.screen_name, cursor, res)
         break
       except CursorError, e:
         if e.code in WAIT_CODES:
@@ -329,15 +350,18 @@ def init(args):
         _fetch_img(user_id, avatar)
       except:
         avatar = ''
+    location = data['location']
     f.write(user_id+ \
       ','+name+ \
+      ','+type+ \
       ','+str(data['friends_count'])+ \
       ','+str(data['followers_count'])+ \
       ','+str(data['listed_count'])+ \
       ','+str(data['statuses_count'])+ \
       ','+data['created_at']+ \
       ','+url.encode('ascii', 'replace')+ \
-      ','+avatar+'\n')
+      ','+avatar+ \
+      ','+location.encode('ascii', 'replace').replace(',', ' ')+'\n')
 
 def _draw(args):
   import igraph
@@ -399,7 +423,7 @@ def edgelist(args):
   for sn in args.screen_name:
     for row, item in enumerate(csv.reader(_skip_hash(open(sn+TT_EXT)))):
       if not dat.has_key(item[0]):
-        dat[item[0]] = item[1:7]+[row]
+        dat[item[0]] = item[1:8]+[row]
   id0 = [user_id for user_id, val in dat.iteritems() if val[0] in args.screen_name]
   e = open('_'.join(args.screen_name)+EDG_EXT, 'w')
   e.write('graph [\n  directed 1\n')
@@ -409,15 +433,16 @@ def edgelist(args):
     e.write('''  node [
     id %s
     label "%s"
+    type "%s"
     statuses %s
     friends %s
     followers %s
-    listed %s''' % (user_id, val[0], val[4], val[1], val[2], val[3]))
+    listed %s''' % (user_id, val[0], val[1], val[5], val[2], val[3], val[4]))
     if len(args.screen_name) == 1:
-      e.write('\n    rank %s' % (0 if val[0] in args.screen_name else val[6]+1))
+      e.write('\n    rank %s' % (0 if val[0] in args.screen_name else val[7]+1))
     if float(val[2]) > 0:
-      ffr = float(val[1])/float(val[2])
-      lfr = float(val[3])/float(val[2])
+      ffr = float(val[2])/float(val[3])
+      lfr = float(val[4])/float(val[3])
       e.write('\n    ffr %.4f' % ffr)
       e.write('\n    lfr %.4f' % lfr)
     if ffr < 1:
@@ -436,7 +461,7 @@ def edgelist(args):
     weight %s
     rank %s
   ]
-''' % (idzero, id1, float(dat[id1][4])/_days(dat[id1][5]), float(dat[id1][6]+1)/(len(dat)-1)))
+''' % (idzero, id1, float(dat[id1][5])/_days(dat[id1][6]), float(dat[id1][7]+1)/(len(dat)-1)))
     filename = FDAT_DIR+'/'+str(id1)+FDAT_EXT
     if os.path.isfile(filename):
       fdat = open(filename).readlines()
@@ -452,27 +477,28 @@ def edgelist(args):
     weight %s
     rank %s
   ]
-''' % (id1, id2, float(dat[id2][4])/_days(dat[id2][5]), rank))
+''' % (id1, id2, float(dat[id2][5])/_days(dat[id2][6]), rank))
     else:
       sys.stdout.write('Missing data for %s\n' % dat[id1][0])
   e.write(']\n')
   e.close()
-  try:
-    _draw(args)
-  except ImportError:
-    sys.stderr.write('Visualization skipped.\n')
-    raise
+  if args.layout:
+    try:
+      _draw(args)
+    except ImportError:
+      sys.stderr.write('Visualization skipped.\n')
+      raise
 
 def fetch(args):
-  dat = [item for item in csv.reader(open(args.screen_name+TT_EXT))]
+  dat = [item for item in csv.reader(_skip_hash(open(args.screen_name+TT_EXT)))]
   if not os.path.exists(FDAT_DIR):
     os.makedirs(FDAT_DIR)
   cursor = res = None
   while len(dat) > 0:
     if cursor is None:
       item = dat.pop()
-    if int(item[2]) > args.count:
-      sys.stdout.write('Skipping %s (%s %s)\n' % (item[1], item[2], 'friends'))
+    if int(item[3]) > args.count:
+      sys.stdout.write('Skipping %s (%s %s)\n' % (item[1], item[3], 'friends'))
       continue
     filename = FDAT_DIR+'/'+str(item[0])+FDAT_EXT
     if args.force or not os.path.isfile(filename):
@@ -696,6 +722,8 @@ def main():
     help='retrieve followers (default: friends)')
   sp_init.add_argument('-q', '--query', action='store_true', \
     help='extract handles from query (default: screen_name)')
+  sp_init.add_argument('-m', '--members', dest='slug', \
+    help='extract member handles from list name')
   sp_init.add_argument('-f', '--force', action='store_true', \
     help='ignore existing %s file (default: False)' % TT_EXT)
   sp_init.add_argument(dest='screen_name', action=QuoteAction, \
@@ -736,9 +764,9 @@ def main():
     help='graph output format (default: png)')
   sp_edgelist.add_argument('-e', '--ego', action='store_true', \
     help='include screen_name (default: False)')
-  sp_edgelist.add_argument('-l', '--layout', default='rt_circular', \
+  sp_edgelist.add_argument('-l', '--layout', \
     choices=('rt_circular', 'circle', 'fr', 'kk'), \
-    help='igraph layout (default: rt_circular)')
+    help='specify to generate visualization (default: none)')
   sp_edgelist.add_argument('-s', '--strong', action='store_true', \
     help='use strong ties to isolate clusters (default: weak)')
   sp_edgelist.add_argument('-t', '--transparent', action='store_true', \

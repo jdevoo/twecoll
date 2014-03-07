@@ -115,4 +115,5 @@ sub-commands:
 	- Changes to community finding and visualization
 * Version 1.6
 	- Added support for multiple arguments in edgelist
-
+* Version 1.7
+	- Added ability to add list members to dat file

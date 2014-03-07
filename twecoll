@@ -37,7 +37,7 @@ import csv
 import re
 import codecs
 
-__version__     = '1.6'
+__version__     = '1.7'
 ALPHANUM        = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
@@ -270,6 +270,10 @@ def _members(param, c=None, init=None):
   return res
 
 def init(args):
+  if args.l:
+    type = args.l
+  else:
+    type = 'followers' if args.followers else 'friends'
   if args.query:
     bag = []
     for tweet in open(args.screen_name+TWT_EXT):
@@ -277,12 +281,10 @@ def init(args):
     bag = list(set(bag))
   else:
     cursor = res = None
-    if not args.slug:
-      type = 'followers' if args.followers else 'friends'
     while True:
       try:
-        if args.slug:
-          bag = _members('slug='+args.slug+'&owner_screen_name='+args.screen_name, cursor, res)
+        if args.l:
+          bag = _members('slug='+args.l+'&owner_screen_name='+args.screen_name, cursor, res)
         else:
           bag = [args.screen_name] + \
             _ids(type, 'screen_name='+args.screen_name, cursor, res)
@@ -722,8 +724,8 @@ def main():
     help='retrieve followers (default: friends)')
   sp_init.add_argument('-q', '--query', action='store_true', \
     help='extract handles from query (default: screen_name)')
-  sp_init.add_argument('-m', '--members', dest='slug', \
-    help='extract member handles from list name')
+  sp_init.add_argument('-m', '--members', dest='l', \
+    help='extract member handles from list named L')
   sp_init.add_argument('-f', '--force', action='store_true', \
     help='ignore existing %s file (default: False)' % TT_EXT)
   sp_init.add_argument(dest='screen_name', action=QuoteAction, \

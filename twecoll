@@ -691,7 +691,7 @@ class StatsAction(argparse.Action):
     data = json.loads(conn.read())
     conn.close()
     sys.stdout.write('init (%s), ' % \
-      data['resources']['users']['/users/search']['remaining'])
+      data['resources']['users']['/users/show/:id']['remaining'])
     sys.stdout.write('fetch (%s), ' % \
       data['resources']['friends']['/friends/ids']['remaining'])
     sys.stdout.write('tweets (%s, -q %s), ' % ( \

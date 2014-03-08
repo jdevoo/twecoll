@@ -766,7 +766,7 @@ def main():
     help='include screen_name (default: False)')
   sp_edgelist.add_argument('-l', '--layout', default='kk', \
     choices=('circle', 'fr', 'kk'), \
-    help='igraph layout (default: rt_circular)')
+    help='igraph layout (default: kk)')
   sp_edgelist.add_argument('-s', '--strong', action='store_true', \
     help='use strong ties to isolate clusters (default: weak)')
   sp_edgelist.add_argument('-t', '--transparent', action='store_true', \

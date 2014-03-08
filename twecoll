@@ -221,9 +221,11 @@ def resolve(args):
     data = json.loads(conn.read())
     conn.close()
     if sn.isdigit():
-      sys.stdout.write(data['screen_name']+'\n')
+      sys.stdout.write(data['screen_name']+' ')
     else:
-      sys.stdout.write(data['id_str']+'\n')
+      sys.stdout.write(data['id_str']+' ')
+    sys.stdout.write('(%s tweets | %s friends | %s followers | %s memberships)\n' % (\
+      data['statuses_count'], data['friends_count'], data['followers_count'], data['listed_count']))
 
 class CursorError(urllib2.HTTPError):
   def __init__(self, code, cursor=None, res=None):
@@ -758,7 +760,7 @@ def main():
 
   sp_edgelist = sp.add_parser('edgelist', \
     help='generate graph in GML format', \
-    description='Vertices have the following attributes: id (ascending by most recent), label, statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on infomap and applied to members of the giant component. Black is used for vertices with more than %s friends or set to private. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.' % FMAX)
+    description='Vertices have the following attributes: id (ascending by most recent), twitter user_id, label, statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on infomap and applied to members of the giant component. Black is used for vertices with more than %s friends or set to private. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.' % FMAX)
   sp_edgelist.add_argument('-f', '--format', default='png', \
     choices=('png', 'pdf', 'svg', 'ps'), \
     help='graph output format (default: png)')

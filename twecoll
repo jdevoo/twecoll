@@ -400,7 +400,7 @@ def _draw(args):
   g.es['width'] = [(not args.transparent)*max(1, 10*e['weight']/E) for e in g.es]
   g.es['arrow_size'] = [max(1, 3*e['weight']/E) for e in g.es]
   for v in g.vs:
-    filename = '%s/%i%s' % (FDAT_DIR, v['id'], FDAT_EXT)
+    filename = '%s/%i%s' % (FDAT_DIR, v['user_id'], FDAT_EXT)
     if not os.path.isfile(filename):
       v['color'] = (0, 0, 0)
   filename = '_'.join(args.screen_name) + \
@@ -434,14 +434,13 @@ def edgelist(args):
       continue
     e.write('''  node [
     id %s
+    user_id %s
     label "%s"
     type "%s"
     statuses %s
     friends %s
     followers %s
-    listed %s''' % (user_id, val[0], val[1], val[5], val[2], val[3], val[4]))
-    if len(args.screen_name) == 1:
-      e.write('\n    rank %s' % (0 if val[0] in args.screen_name else val[9]+1))
+    listed %s''' % (val[9]+1, user_id, val[0], val[1], val[5], val[2], val[3], val[4]))
     if float(val[2]) > 0:
       ffr = (float(val[3])/float(val[2])) if float(val[2]) > 0 else 0
       lfr = (10*float(val[4])/float(val[3])) if float(val[3]) > 0 else 0
@@ -463,7 +462,7 @@ def edgelist(args):
     weight %s
     rank %s
   ]
-''' % (idzero, id1, float(dat[id1][5])/_days(dat[id1][6]), float(dat[id1][9]+1)/(len(dat)-1)))
+''' % (dat[idzero][9]+1, dat[id1][9]+1, float(dat[id1][5])/_days(dat[id1][6]), 1-float(dat[id1][9]+1)/(len(dat)-1)))
     filename = FDAT_DIR+'/'+str(id1)+FDAT_EXT
     if os.path.isfile(filename):
       fdat = open(filename).readlines()
@@ -472,24 +471,23 @@ def edgelist(args):
         if dat.has_key(id2):
           if not args.ego and id2 in id0:
             continue
-          rank = float(len(fdat)-row)/len(fdat)
+          rank = 1-float(len(fdat)-row)/len(fdat)
           e.write('''  edge [
     source %s
     target %s
     weight %s
     rank %s
   ]
-''' % (id1, id2, float(dat[id2][5])/_days(dat[id2][6]), rank))
+''' % (dat[id1][9]+1, dat[id2][9]+1, float(dat[id2][5])/_days(dat[id2][6]), rank))
     else:
       sys.stdout.write('Missing data for %s\n' % dat[id1][0])
   e.write(']\n')
   e.close()
-  if args.layout:
-    try:
-      _draw(args)
-    except ImportError:
-      sys.stderr.write('Visualization skipped.\n')
-      raise
+  try:
+    _draw(args)
+  except ImportError:
+    sys.stderr.write('Visualization skipped.\n')
+    raise
 
 def fetch(args):
   dat = [item for item in csv.reader(_skip_hash(open(args.screen_name+TT_EXT)))]
@@ -760,15 +758,15 @@ def main():
 
   sp_edgelist = sp.add_parser('edgelist', \
     help='generate graph in GML format', \
-    description='Vertices have the following attributes: id, label, rank (ascending by order followed), statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on infomap and applied to members of the giant component. Black is used for vertices with more than %s friends or set to private. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.' % FMAX)
+    description='Vertices have the following attributes: id (ascending by most recent), label, statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on infomap and applied to members of the giant component. Black is used for vertices with more than %s friends or set to private. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.' % FMAX)
   sp_edgelist.add_argument('-f', '--format', default='png', \
     choices=('png', 'pdf', 'svg', 'ps'), \
     help='graph output format (default: png)')
   sp_edgelist.add_argument('-e', '--ego', action='store_true', \
     help='include screen_name (default: False)')
-  sp_edgelist.add_argument('-l', '--layout', \
-    choices=('rt_circular', 'circle', 'fr', 'kk'), \
-    help='specify to generate visualization (default: none)')
+  sp_edgelist.add_argument('-l', '--layout', default='kk', \
+    choices=('circle', 'fr', 'kk'), \
+    help='igraph layout (default: rt_circular)')
   sp_edgelist.add_argument('-s', '--strong', action='store_true', \
     help='use strong ties to isolate clusters (default: weak)')
   sp_edgelist.add_argument('-t', '--transparent', action='store_true', \

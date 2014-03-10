@@ -278,9 +278,13 @@ def init(args):
     type = 'followers' if args.followers else 'friends'
   if args.query:
     bag = []
+    users = []
     for tweet in open(args.screen_name+TWT_EXT):
-      bag += re.findall(r'@([\w]+)', tweet.lower())
+      handles = re.findall(r'@([\w]+)', tweet.lower())
+      bag += handles
+      users.append(handles[0])
     bag = list(set(bag))
+    users = list(set(users))
   else:
     cursor = res = None
     while True:
@@ -357,7 +361,7 @@ def init(args):
     location = data['location']
     f.write(user_id+ \
       ','+name+ \
-      ','+type+ \
+      ','+('mention' if args.query and name not in users else type)+ \
       ','+str(data['friends_count'])+ \
       ','+str(data['followers_count'])+ \
       ','+str(data['listed_count'])+ \
@@ -405,6 +409,8 @@ def _draw(args):
     filename = '%s/%i%s' % (FDAT_DIR, v['user_id'], FDAT_EXT)
     if not os.path.isfile(filename):
       v['color'] = (0, 0, 0)
+    if v['type'] == 'mention':
+      v['label_color'] = 'blue'
   filename = '_'.join(args.screen_name) + \
     ('_s' if args.strong else '_w') + \
     ('_t' if args.transparent else '') + \
@@ -423,7 +429,6 @@ def _skip_hash(iterable):
 
 def edgelist(args):
   dat = {}
-  id0 = []
   for sn in args.screen_name:
     for row, item in enumerate(csv.reader(_skip_hash(open(sn+TT_EXT)))):
       if not dat.has_key(item[0]):
@@ -690,7 +695,7 @@ class StatsAction(argparse.Action):
     conn = urllib2.urlopen(url)
     data = json.loads(conn.read())
     conn.close()
-    sys.stdout.write('init (%s), ' % \
+    sys.stdout.write('init/resolve (%s), ' % \
       data['resources']['users']['/users/show/:id']['remaining'])
     sys.stdout.write('fetch (%s), ' % \
       data['resources']['friends']['/friends/ids']['remaining'])

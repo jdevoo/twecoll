@@ -406,7 +406,7 @@ def _draw(args):
   g.es['width'] = [(not args.transparent)*max(1, 10*e['weight']/E) for e in g.es]
   g.es['arrow_size'] = [max(1, 3*e['weight']/E) for e in g.es]
   for v in g.vs:
-    filename = '%s/%i%s' % (FDAT_DIR, v['user_id'], FDAT_EXT)
+    filename = '%s/%s%s' % (FDAT_DIR, v['user_id'], FDAT_EXT)
     if not os.path.isfile(filename):
       v['color'] = (0, 0, 0)
     if v['type'] == 'mention':
@@ -441,7 +441,7 @@ def edgelist(args):
       continue
     e.write('''  node [
     id %s
-    user_id %s
+    user_id "%s"
     label "%s"
     type "%s"
     statuses %s

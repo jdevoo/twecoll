@@ -281,8 +281,9 @@ def init(args):
     users = []
     for tweet in open(args.screen_name+TWT_EXT):
       handles = re.findall(r'@([\w]+)', tweet.lower())
-      bag += handles
-      users.append(handles[0])
+      if len(handles) > 0:
+        bag += handles
+        users.append(handles[0])
     bag = list(set(bag))
     users = list(set(users))
   else:

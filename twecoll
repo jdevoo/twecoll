@@ -645,7 +645,7 @@ def tweets(args):
   while True:
     try:
       if args.query:
-        url = 'https://api.twitter.com/1.1/search/tweets.json?count=100&q=%s&result_type=recent'
+        url = 'https://api.twitter.com/1.1/search/tweets.json?q=%s&result_type=recent'
       else:
         url = 'https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=%s&count=100'
       if max_id:

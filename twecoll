@@ -194,15 +194,15 @@ def _fetch_img(user_id, avatar):
     os.makedirs(IMG_DIR)
   filename = IMG_DIR+'/'+str(user_id)
   if info == 'image/gif':
-    file = open(filename+'.gif', 'wb')
+    filename += '.gif'
   elif info == 'image/jpeg' or info == 'image/pjpeg':
-    file = open(filename+'.jpg', 'wb')
+    filename += '.jpg'
   elif info == 'image/png':
-    file = open(filename+'.png', 'wb')
-  else:
-    file = open(filename, 'wb')
+    filename += '.png'
+  file = open(filename, 'wb')
   file.write(data)
   file.close()
+  return filename
 
 def resolve(args):
   for sn in args.screen_name:
@@ -356,7 +356,7 @@ def init(args):
     avatar = data['profile_image_url'] if data['profile_image_url'] is not None else ''
     if avatar != '':
       try:
-        _fetch_img(user_id, avatar)
+        avatar = _fetch_img(user_id, avatar)
       except:
         avatar = ''
     location = data['location']
@@ -444,11 +444,12 @@ def edgelist(args):
     id %s
     user_id "%s"
     label "%s"
+    image "%s"
     type "%s"
     statuses %s
     friends %s
     followers %s
-    listed %s''' % (val[9]+1, user_id, val[0], val[1], val[5], val[2], val[3], val[4]))
+    listed %s''' % (val[9]+1, user_id, val[0], os.path.abspath(val[8]), val[1], val[5], val[2], val[3], val[4]))
     if float(val[2]) > 0:
       ffr = (float(val[3])/float(val[2])) if float(val[2]) > 0 else 0
       lfr = (10*float(val[4])/float(val[3])) if float(val[3]) > 0 else 0

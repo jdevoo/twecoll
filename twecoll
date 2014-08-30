@@ -586,7 +586,7 @@ def favorites(args):
     sys.stderr.flush()
     while not sys.stdin.read(1):
       pass
-    _destroy(ars.screen_name)
+    _destroy(args.screen_name)
   else:
     filename = args.screen_name+FAV_EXT
     f = codecs.open(filename, 'w', encoding='utf-8')

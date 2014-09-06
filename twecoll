@@ -686,7 +686,7 @@ def tweets(args):
         else:
           continue
       max_id = min(max_id, tweet['id']) or tweet['id']
-      if args.query:
+      if args.query or args.l:
         f.write('%30s @%-20s %s\n' % (tweet['created_at'], \
           tweet['user']['screen_name'], tweet['text'].replace('\n', ' ')))
       else:

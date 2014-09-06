@@ -117,3 +117,5 @@ sub-commands:
 	- Added support for multiple arguments in edgelist
 * Version 1.7
 	- Added ability to add list members to dat file
+* Version 1.8
+	- Fetch tweets from list for a given user

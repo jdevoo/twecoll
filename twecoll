@@ -153,10 +153,21 @@ class OAuthHandler(urllib2.BaseHandler):
 
 def _replace_opener():
   filename = os.path.expanduser('~')+'/.'+os.path.basename(sys.argv[0])
-  f = open(filename, 'r+')
-  lines = f.readlines()
-  key = lines[0].strip()
-  secret = lines[1].strip()
+  if os.path.isfile(filename):
+    f = open(filename, 'r+')
+    lines = f.readlines()
+    key = lines[0].strip()
+    secret = lines[1].strip()
+  else:
+    sys.stderr.write('What is the Key? ')
+    key = sys.stdin.readline().rstrip('\r\n')
+    sys.stderr.write('What is the Secret? ')
+    secret = sys.stdin.readline().rstrip('\r\n')
+    f = open(filename, 'w+')    
+    f.write(key+'\n')
+    f.write(secret)
+    lines = [key,secret]
+    
   consumer = Consumer(key, secret)
   if len(lines) > 2:
     oauth = lines[2].strip()
@@ -178,7 +189,7 @@ Open the following link in your browser and authorize me...
       oauth_params={'oauth_verifier': verifier}))
     atoken = urlparse.parse_qs(resp.read())
     atoken = Token(atoken['oauth_token'][0], atoken['oauth_token_secret'][0])
-    f.write(atoken.key+'\n')
+    f.write('\n'+atoken.key+'\n')
     f.write(atoken.secret+'\n')
     f.close()
     sys.stderr.write('Setup complete. Tokens added to %s\n' % filename)

@@ -37,7 +37,7 @@ import csv
 import re
 import codecs
 
-__version__     = '1.8'
+__version__     = '1.9'
 ALPHANUM        = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
@@ -154,32 +154,28 @@ class OAuthHandler(urllib2.BaseHandler):
 def _replace_opener():
   filename = os.path.expanduser('~')+'/.'+os.path.basename(sys.argv[0])
   if os.path.isfile(filename):
-    f = open(filename, 'r+')
+    f = open(filename, 'r')
     lines = f.readlines()
     key = lines[0].strip()
     secret = lines[1].strip()
   else:
-    sys.stderr.write('What is the Key? ')
+    sys.stderr.write('What is the consumer key? ')
     key = sys.stdin.readline().rstrip('\r\n')
-    sys.stderr.write('What is the Secret? ')
+    sys.stderr.write('What is the consumer secret? ')
     secret = sys.stdin.readline().rstrip('\r\n')
-    f = open(filename, 'w+')    
-    f.write(key+'\n')
-    f.write(secret)
-    lines = [key,secret]
-    
+    lines = [key, secret]
   consumer = Consumer(key, secret)
-  if len(lines) > 2:
+  try:
     oauth = lines[2].strip()
     oauth_secret = lines[3].strip()
     atoken = Token(oauth, oauth_secret)
-  else:
+  except IndexError:
     opener = urllib2.build_opener(OAuthHandler(consumer))
     resp = opener.open(Request('https://api.twitter.com/oauth/request_token'))
     rtoken = urlparse.parse_qs(resp.read())
     rtoken = Token(rtoken['oauth_token'][0], rtoken['oauth_token_secret'][0])
     sys.stderr.write('''TWITTER API AUTHENTICATION SETUP
-Open the following link in your browser and authorize me...
+Open the following link in your browser and authorize this script...
 '>>> https://api.twitter.com/oauth/authorize?oauth_token=%s\n''' % rtoken.key)
     sys.stderr.write('What is the PIN? ')
     verifier = sys.stdin.readline().rstrip('\r\n')
@@ -189,7 +185,10 @@ Open the following link in your browser and authorize me...
       oauth_params={'oauth_verifier': verifier}))
     atoken = urlparse.parse_qs(resp.read())
     atoken = Token(atoken['oauth_token'][0], atoken['oauth_token_secret'][0])
-    f.write('\n'+atoken.key+'\n')
+    f = open(filename, 'w')
+    f.write(key+'\n')
+    f.write(secret+'\n')
+    f.write(atoken.key+'\n')
     f.write(atoken.secret+'\n')
     f.close()
     sys.stderr.write('Setup complete. Tokens added to %s\n' % filename)
@@ -389,7 +388,7 @@ def _draw(args):
   g = igraph.load('_'.join(args.screen_name)+EDG_EXT)
   sys.stdout.write('%s Handles\n%s Follow Relationships\n' % (g.vcount(), g.ecount()))
   sys.stdout.write('Avg Shortest Path = %.6f\n' % g.average_path_length())
-  sys.stdout.write('In-Degree Distribution = (%.6f, %.6f)\n' % (g.degree_distribution(mode=igraph.IN).mean, g.degree_distribution(mode=igraph.IN).sd))
+  sys.stdout.write('In-Degree Distribution mean = %.6f, sd = %.6f\n' % (g.degree_distribution(mode=igraph.IN).mean, g.degree_distribution(mode=igraph.IN).sd))
   sys.stdout.write('Clustering Coefficient = %.6f\n' % g.transitivity_undirected())
   sys.stdout.write('Degree Assortativity = %.6f\n' % g.assortativity_degree())
   sys.stdout.write('Triad Census\n%s\n' % str(g.triad_census()))
@@ -399,7 +398,7 @@ def _draw(args):
   gc = comp.giant()
   gc_size = gc.vcount()
   sys.stdout.write('Fraction Handles in GC = %.2f%%\n' % (100.0*gc_size/g.vcount()))
-  sys.stdout.write('GC Diameter = %i (%.6f)\n' % (gc.diameter(), gc.diameter(weights=gc.es['rank'])))
+  sys.stdout.write('GC Diameter unweighted = %i, weighted = %.6f\n' % (gc.diameter(), gc.diameter(weights=gc.es['rank'])))
   gc_vert = comp[comp.sizes().index(gc_size)]
   cim = gc.community_infomap(edge_weights=gc.es['rank'], vertex_weights=gc.vs['lfr'])
   M = max(cim.membership)+1
@@ -591,9 +590,9 @@ def _destroy(screen_name):
     data = json.loads(conn.read())
     conn.close()
 
-def favorites(args):
+def likes(args):
   if args.purge:
-    sys.stderr.write('Press any key to purge favorites or Ctrl-C to abort...')
+    sys.stderr.write('Press any key to purge likes or Ctrl-C to abort...')
     sys.stderr.flush()
     while not sys.stdin.read(1):
       pass
@@ -602,7 +601,7 @@ def favorites(args):
     filename = args.screen_name+FAV_EXT
     f = codecs.open(filename, 'w', encoding='utf-8')
     max_id = None
-    sys.stderr.write('Fetching favorites')
+    sys.stderr.write('Fetching likes')
     sys.stderr.flush()
     while True:
       try:
@@ -717,7 +716,7 @@ class StatsAction(argparse.Action):
     sys.stdout.write('tweets (%s, -q %s), ' % ( \
       data['resources']['statuses']['/statuses/user_timeline']['remaining'], \
       data['resources']['search']['/search/tweets']['remaining']))
-    sys.stdout.write('favorites (%s)\n' % \
+    sys.stdout.write('likes (%s)\n' % \
       data['resources']['favorites']['/favorites/list']['remaining'])
     sys.exit(0)
 
@@ -772,13 +771,13 @@ def main():
     help='Twitter screen name')
   sp_tweets.set_defaults(func=tweets)
 
-  sp_favorites = sp.add_parser('favorites', \
-    help='retrieve favorites')
-  sp_favorites.add_argument('-p', '--purge', action='store_true', \
-    help='destroy favorites (default: False)')
-  sp_favorites.add_argument(dest='screen_name', action=QuoteAction, \
+  sp_likes = sp.add_parser('likes', \
+    help='retrieve likes')
+  sp_likes.add_argument('-p', '--purge', action='store_true', \
+    help='destroy likes (default: False)')
+  sp_likes.add_argument(dest='screen_name', action=QuoteAction, \
     help='Twitter screen name')
-  sp_favorites.set_defaults(func=favorites)
+  sp_likes.set_defaults(func=likes)
 
   sp_edgelist = sp.add_parser('edgelist', \
     help='generate graph in GML format', \

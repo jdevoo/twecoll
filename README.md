@@ -1,4 +1,4 @@
-Twecoll is a Twitter command-line tool written in Python. It can be used to retrieve data from Twitter and purge favorites (its only data-altering feature). It is based on a sub-command principle meaning calls to twecoll are based on a keyword which instructs twecoll what to do. Below is a list of examples followed by a brief explanation of each command. Running twecoll requires Python 2.7 and the argparse library. It was tested with igraph 0.6 and 0.7.1. The igraph library is optional and is used to generate a clustered graph of the network. It was not tested with Python 3.
+Twecoll is a Twitter command-line tool written in Python. It can be used to retrieve data from Twitter and purge likes (its only data-altering feature). It is based on a sub-command principle meaning calls to twecoll are based on a keyword which instructs twecoll what to do. Below is a list of examples followed by a brief explanation of each command. Running twecoll requires Python 2.7 and the argparse library. It was tested with igraph 0.6 and 0.7.1. The igraph library is optional and is used to generate a clustered graph of the network.
 
 
 ## Installation
@@ -9,28 +9,28 @@ Place twecoll in your path and create a working directory to store the data coll
 * img: directory containing avatar images of friends
 * .dat: extension of account details data (friends, followers, avatar URL, etc. for account friends)
 * .twt: extension of tweets file (timestamp, tweet)
-* .fav: extension of favorites file (id, timestamp, user id, screen name, tweet)
+* .fav: extension of likes file (id, timestamp, user id, screen name, tweet)
 * .gml: extension of edgelist file (nodes and edges)
 * .f: friends data (fdat)
 
-Twecoll uses oauth and has been updated to support the 1.1 version of the Twitter REST API. Register your own copy of twecoll on http://dev.twitter.com and copy the consumer key and secret.
+Twecoll uses oauth and has been updated to support the 1.1 version of the Twitter REST API. Register your own copy of twecoll on http://app.twitter.com and copy the consumer key and secret.
 
-The first time you run a twecoll command, it will ask you for the key and secret. Then it will retrieve the oauth token. Follow the instructions on the console.
+The first time you run a twecoll command, it will ask you for the consumer key and consumer secret. It will then retrieve the oauth token. Follow the instructions on the console. An HTTP Error 401 will be thrown if the key and secret cannot be used to retrieve the access token details.
 
 ## Examples
 
-#### Download and Purge Favorites
-Historically, this was twecoll's main use: download all favorited tweets in a file for search purposes. Let's take the handle 'jdevoo' as an example.
+#### Download and Purge Likes
+Historically, this was twecoll's main use: download all favorited/liked tweets in a file for search purposes. Let's take the handle 'jdevoo' as an example.
 
 ```
-$ twecoll favorites jdevoo
+$ twecoll likes jdevoo
 ```
 
-This will produce a jdevoo.fav file containing all favorites including a tweet ID, timestamp, user ID, handle, text (urf-8).
-In order to purge the favorites, twecoll needs the .fav file. You can the execute:
+This will produce a jdevoo.fav file containing all likes including a tweet ID, timestamp, user ID, handle, text (urf-8).
+In order to purge the likes, twecoll needs the .fav file. You can the execute:
 
 ```
-$ twecoll favorites -p jdevoo
+$ twecoll likes -p jdevoo
 ```
 
 This is the only command that alters account data. You will need to select the Read+Write permission model for this to work when registering twecoll.
@@ -82,7 +82,7 @@ Twecoll has built-in help, version and API status switches invoked with -h, -v a
 ```
 $ twecoll -h
 usage: twecoll [-h] [-v] [-s]
-               {resolve,init,fetch,tweets,favorites,edgelist} ...
+               {resolve,init,fetch,tweets,likes,edgelist} ...
 
 Twitter Collection Tool
 
@@ -92,12 +92,12 @@ optional arguments:
   -s, --stats           show Twitter throttling stats and exit
 
 sub-commands:
-  {resolve,init,fetch,tweets,favorites,edgelist}
+  {resolve,init,fetch,tweets,likes,edgelist}
     resolve             retrieve user_id for screen_name or vice versa
     init                retrieve friends data for screen_name
     fetch               retrieve friends of handles in .dat file
     tweets              retrieve tweets
-    favorites           retrieve favorites
+    likes               retrieve likes
     edgelist            generate graph in GML format
 ```
 
@@ -119,3 +119,5 @@ sub-commands:
 	- Added ability to add list members to dat file
 * Version 1.8
 	- Fetch tweets from list for a given user
+* Version 1.9
+	- Renamed favorites to likes

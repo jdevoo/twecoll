@@ -13,7 +13,7 @@ Place twecoll in your path and create a working directory to store the data coll
 * .gml: extension of edgelist file (nodes and edges)
 * .f: friends data (fdat)
 
-Twecoll uses oauth and has been updated to support the 1.1 version of the Twitter REST API. Register your own copy of twecoll on http://app.twitter.com and copy the consumer key and secret.
+Twecoll uses oauth and has been updated to support the 1.1 version of the Twitter REST API. Register your own copy of twecoll on http://apps.twitter.com and copy the consumer key and secret.
 
 The first time you run a twecoll command, it will ask you for the consumer key and consumer secret. It will then retrieve the oauth token. Follow the instructions on the console. An HTTP Error 401 will be thrown if the key and secret cannot be used to retrieve the access token details.
 

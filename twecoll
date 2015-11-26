@@ -159,9 +159,12 @@ def _replace_opener():
     key = lines[0].strip()
     secret = lines[1].strip()
   else:
-    sys.stderr.write('What is the consumer key? ')
+    sys.stderr.write('''TWITTER API AUTHENTICATION SETUP
+(1) Open the following link in your browser and register this script...
+'>>> https://apps.twitter.com/\n''')
+    sys.stderr.write('What is its consumer key? ')
     key = sys.stdin.readline().rstrip('\r\n')
-    sys.stderr.write('What is the consumer secret? ')
+    sys.stderr.write('What is its consumer secret? ')
     secret = sys.stdin.readline().rstrip('\r\n')
     lines = [key, secret]
   consumer = Consumer(key, secret)
@@ -174,8 +177,7 @@ def _replace_opener():
     resp = opener.open(Request('https://api.twitter.com/oauth/request_token'))
     rtoken = urlparse.parse_qs(resp.read())
     rtoken = Token(rtoken['oauth_token'][0], rtoken['oauth_token_secret'][0])
-    sys.stderr.write('''TWITTER API AUTHENTICATION SETUP
-Open the following link in your browser and authorize this script...
+    sys.stderr.write('''(2) Now, open this link and authorize the script...
 '>>> https://api.twitter.com/oauth/authorize?oauth_token=%s\n''' % rtoken.key)
     sys.stderr.write('What is the PIN? ')
     verifier = sys.stdin.readline().rstrip('\r\n')
@@ -191,7 +193,7 @@ Open the following link in your browser and authorize this script...
     f.write(atoken.key+'\n')
     f.write(atoken.secret+'\n')
     f.close()
-    sys.stderr.write('Setup complete. Tokens added to %s\n' % filename)
+    sys.stderr.write('Setup complete and %s created\n' % filename)
   opener = urllib2.build_opener(OAuthHandler(consumer, atoken))
   urllib2.install_opener(opener)
 

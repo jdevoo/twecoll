@@ -37,7 +37,7 @@ import csv
 import re
 import codecs
 
-__version__     = '1.9'
+__version__     = '1.10'
 ALPHANUM        = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
@@ -193,7 +193,7 @@ def _replace_opener():
     f.write(atoken.key+'\n')
     f.write(atoken.secret+'\n')
     f.close()
-    sys.stderr.write('Setup complete and %s created\n' % filename)
+    sys.stderr.write('Setup complete and %s created.\n' % filename)
   opener = urllib2.build_opener(OAuthHandler(consumer, atoken))
   urllib2.install_opener(opener)
 
@@ -393,35 +393,35 @@ def _draw(args):
   sys.stdout.write('In-Degree Distribution mean = %.6f, sd = %.6f\n' % (g.degree_distribution(mode=igraph.IN).mean, g.degree_distribution(mode=igraph.IN).sd))
   sys.stdout.write('Clustering Coefficient = %.6f\n' % g.transitivity_undirected())
   sys.stdout.write('Degree Assortativity = %.6f\n' % g.assortativity_degree())
-  sys.stdout.write('Triad Census\n%s\n' % str(g.triad_census()))
+  #sys.stdout.write('Triad Census\n%s\n' % str(g.triad_census()))
   width = height = int(750+g.vcount()*4.73-g.vcount()**2*1.55e-3)
   comp = g.clusters(igraph.STRONG if args.strong else igraph.WEAK)
   sys.stdout.write('Cluster Modularity = %.6f\n' % comp.modularity)
   gc = comp.giant()
   gc_size = gc.vcount()
-  sys.stdout.write('Fraction Handles in GC = %.2f%%\n' % (100.0*gc_size/g.vcount()))
-  sys.stdout.write('GC Diameter unweighted = %i, weighted = %.6f\n' % (gc.diameter(), gc.diameter(weights=gc.es['rank'])))
-  gc_vert = comp[comp.sizes().index(gc_size)]
-  cim = gc.community_infomap(edge_weights=gc.es['rank'], vertex_weights=gc.vs['lfr'])
-  M = max(cim.membership)+1
-  HSV_tuples = [(t*1.0/M, 0.75, 1.0) for t in range(M)]
-  RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
+  sys.stdout.write('Fraction Handles in Giant Component = %.2f%%\n' % (100.0*gc_size/g.vcount()))
   for v in g.vs:
-    gc_v = gc.vs.select(id_eq=v['id'])
-    if len(gc_v) > 0:
-      v['color'] = RGB_tuples[cim.membership[gc_v[0].index]]
-    else:
-      v['color'] = (.8, .8, .8)
-  ID = max(g.vs.indegree()) or 1
-  g.vs['label_size'] = [max(12, 36*v.indegree()/ID) for v in g.vs]
-  g.es['color'] = [g.vs['color'][e.target] for e in g.es]
-  E = max(g.es['weight'])
-  g.es['width'] = [(not args.transparent)*max(1, 10*e['weight']/E) for e in g.es]
-  g.es['arrow_size'] = [max(1, 3*e['weight']/E) for e in g.es]
+    v['color'] = (0, 0, 0)
+  if gc.ecount() > 0:
+    sys.stdout.write('GC Diameter Unweighted = %i, Weighted = %.6f\n' % (gc.diameter(), gc.diameter(weights=gc.es['weight'])))
+    gc_vert = comp[comp.sizes().index(gc_size)]
+    cim = gc.community_infomap(edge_weights=gc.es['weight'], vertex_weights=gc.vs['lfr'])
+    M = max(cim.membership)+1
+    HSV_tuples = [(t*1.0/M, 0.75, 1.0) for t in range(M)]
+    RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
+    for v in g.vs:
+      gc_v = gc.vs.select(id_eq=v['id'])
+      if len(gc_v) > 0:
+        v['color'] = RGB_tuples[cim.membership[gc_v[0].index]]
+      else:
+        v['color'] = (.8, .8, .8)
+    ID = max(g.vs.indegree()) or 1
+    g.vs['label_size'] = [max(12, 36*v.indegree()/ID) for v in g.vs]
+    g.es['color'] = [g.vs['color'][e.target] for e in g.es]
+    E = max(g.es['weight'])
+    g.es['width'] = [(not args.transparent)*max(1, 10*e['weight']/E) for e in g.es]
+    g.es['arrow_size'] = [max(1, 3*e['weight']/E) for e in g.es]
   for v in g.vs:
-    filename = '%s/%s%s' % (FDAT_DIR, v['user_id'], FDAT_EXT)
-    if not os.path.isfile(filename):
-      v['color'] = (0, 0, 0)
     if v['type'] == 'mention':
       v['label_color'] = 'blue'
   filename = '_'.join(args.screen_name) + \
@@ -440,12 +440,15 @@ def _skip_hash(iterable):
     if not line.startswith('#'):
       yield line
 
+def _wrap(s):
+  return int(sys.maxsize - long(s)) if long(s) > sys.maxsize else int(s)
+ 
 def edgelist(args):
   dat = {}
   for sn in args.screen_name:
-    for row, item in enumerate(csv.reader(_skip_hash(open(sn+TT_EXT)))):
+    for item in csv.reader(_skip_hash(open(sn+TT_EXT))):
       if not dat.has_key(item[0]):
-        dat[item[0]] = item[1:10]+[row]
+        dat[item[0]] = item[1:10]
   id0 = [user_id for user_id, val in dat.iteritems() if val[0] in args.screen_name]
   e = open('_'.join(args.screen_name)+EDG_EXT, 'w')
   e.write('graph [\n  directed 1\n')
@@ -454,14 +457,13 @@ def edgelist(args):
       continue
     e.write('''  node [
     id %s
-    user_id "%s"
     label "%s"
     image "%s"
     type "%s"
     statuses %s
     friends %s
     followers %s
-    listed %s''' % (val[9]+1, user_id, val[0], os.path.abspath(val[8]), val[1], val[5], val[2], val[3], val[4]))
+    listed %s''' % (_wrap(user_id), val[0], os.path.abspath(val[8]), val[1], val[5], val[2], val[3], val[4]))
     if float(val[2]) > 0:
       ffr = (float(val[3])/float(val[2])) if float(val[2]) > 0 else 0
       lfr = (10*float(val[4])/float(val[3])) if float(val[3]) > 0 else 0
@@ -481,9 +483,8 @@ def edgelist(args):
     source %s
     target %s
     weight %s
-    rank %s
   ]
-''' % (dat[idzero][9]+1, dat[id1][9]+1, float(dat[id1][5])/_days(dat[id1][6]), 1-float(dat[id1][9]+1)/(len(dat)-1)))
+''' % (_wrap(idzero), _wrap(id1), float(dat[id1][5])/_days(dat[id1][6])))
     filename = FDAT_DIR+'/'+str(id1)+FDAT_EXT
     if os.path.isfile(filename):
       fdat = open(filename).readlines()
@@ -492,21 +493,20 @@ def edgelist(args):
         if dat.has_key(id2):
           if not args.ego and id2 in id0:
             continue
-          rank = 1-float(len(fdat)-row)/len(fdat)
           e.write('''  edge [
     source %s
     target %s
     weight %s
-    rank %s
   ]
-''' % (dat[id1][9]+1, dat[id2][9]+1, float(dat[id2][5])/_days(dat[id2][6]), rank))
+''' % (_wrap(id1), _wrap(id2), float(dat[id2][5])/_days(dat[id2][6])))
     else:
       sys.stdout.write('Missing data for %s\n' % dat[id1][0])
   e.write(']\n')
   e.close()
+  sys.stdout.write('GML file created.\n')
   try:
     _draw(args)
-  except ImportError:
+  except:
     sys.stderr.write('Visualization skipped.\n')
     raise
 
@@ -783,9 +783,9 @@ def main():
 
   sp_edgelist = sp.add_parser('edgelist', \
     help='generate graph in GML format', \
-    description='Vertices have the following attributes: id (ascending by most recent), twitter user_id, label, statuses, friends, followers, and listed. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on infomap and applied to members of the giant component. Black is used for vertices with more than %s friends or set to private. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.' % FMAX)
+    description='Vertices have the following attributes: id (ascending by most recent), twitter user_id, label, link to image file, type, statuses, friends, followers, listed, ffr and lfr. Edges have a width based on their weight attribute. Weight corresponds to the number of tweets per day since the account was created. Vertices included in the giant component are colored according to their membership to a particular community. Otherwise, they are colored in grey. Community finding is based on infomap and applied to members of the giant component. Black is used for vertices with no edges, with more than %s friends or set to private. Vertices with a friends-to-followers ratio > 1 have a triangle_up shape, otherwise triangle_down is used.' % FMAX)
   sp_edgelist.add_argument('-f', '--format', default='png', \
-    choices=('png', 'pdf', 'svg', 'ps'), \
+    choices=('png', 'pdf', 'ps'), \
     help='graph output format (default: png)')
   sp_edgelist.add_argument('-e', '--ego', action='store_true', \
     help='include screen_name (default: False)')

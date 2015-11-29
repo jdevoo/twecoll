@@ -448,7 +448,7 @@ def edgelist(args):
   for sn in args.screen_name:
     for item in csv.reader(_skip_hash(open(sn+TT_EXT))):
       if not dat.has_key(item[0]):
-        dat[item[0]] = item[1:10]
+        dat[item[0]] = item[1:10]+[sn]
   id0 = [user_id for user_id, val in dat.iteritems() if val[0] in args.screen_name]
   e = open('_'.join(args.screen_name)+EDG_EXT, 'w')
   e.write('graph [\n  directed 1\n')
@@ -457,13 +457,14 @@ def edgelist(args):
       continue
     e.write('''  node [
     id %s
+    file "%s.dat"
     label "%s"
     image "%s"
     type "%s"
     statuses %s
     friends %s
     followers %s
-    listed %s''' % (_wrap(user_id), val[0], os.path.abspath(val[8]), val[1], val[5], val[2], val[3], val[4]))
+    listed %s''' % (_wrap(user_id), val[9], val[0], os.path.abspath(val[8]), val[1], val[5], val[2], val[3], val[4]))
     if float(val[2]) > 0:
       ffr = (float(val[3])/float(val[2])) if float(val[2]) > 0 else 0
       lfr = (10*float(val[4])/float(val[3])) if float(val[3]) > 0 else 0
@@ -758,7 +759,7 @@ def main():
   sp_fetch.add_argument('-f', '--force', action='store_true', \
     help='ignore existing %s files (default: False)' % FDAT_EXT)
   sp_fetch.add_argument('-c', dest='count', type=int, default=FMAX, \
-    help='skip if above count (default: %(FMAX)i)' % globals())
+    help='skip if friends above count (default: %(FMAX)i)' % globals())
   sp_fetch.add_argument(dest='screen_name', action=QuoteAction, \
     help='Twitter screen name')
   sp_fetch.set_defaults(func=fetch)

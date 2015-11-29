@@ -75,6 +75,8 @@ $ twecoll edgelist jdevoo
 This generates a jdevoo.gml file in Graph Model Language. If you have installed the python version of igraph, a .png file will also be generated with a visualization of the GML data. You can also use other packages to visualize your GML file, e.g. Gephi.
 The GML file will include friends, followers, memberships and statuses counts as properties. If followers count is not equal to zero, the friends-to-followers and listed-to-followers ratios will be calculated.
 
+See also the [wiki](https://github.com/jdevoo/twecoll/wiki) section for more ideas.
+
 ## Usage
 
 Twecoll has built-in help, version and API status switches invoked with -h, -v and -s respectively. Each command can also be invoked with the help switch for additional information about its sub-options.

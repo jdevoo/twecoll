@@ -52,6 +52,7 @@ WAIT_CODES  = (400, 503, 429)
 RETRY_CODES = (500, 502, 110)
 SKIP_CODES  = (401, 403, 404)
 RL_WINDOW   = 15*60 # Rate limiting timeout
+SHAPES      = ['box', 'circle', 'rect', 'triangle-up', 'diamond', 'triangle-down']
 
 from collections import namedtuple
 Consumer = namedtuple('Consumer', 'key secret')
@@ -324,7 +325,8 @@ def init(args):
     f = open(filename, 'r+')
     for item in csv.reader(f):
       try:
-        bag.remove(item[1] if args.query or item[1] == args.screen_name else int(item[0]))
+        bag.remove(item[1] if \
+          args.query or item[1] == args.screen_name else int(item[0]))
       except:
         continue
   else:
@@ -350,8 +352,7 @@ def init(args):
         sys.stderr.write('\n')
         continue
       elif e.code in WAIT_CODES:
-        sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
-          (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(bag)+1))
+        sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(bag)+1))
         sys.stderr.flush()
         bag.append(item)
         time.sleep(RL_WINDOW+random.randint(10,60))
@@ -401,9 +402,9 @@ def _draw(args):
   gc_size = gc.vcount()
   sys.stdout.write('Fraction Handles in Giant Component = %.2f%%\n' % (100.0*gc_size/g.vcount()))
   for v in g.vs:
-    v['color'] = (0, 0, 0)
+    v['color'] = (.8, .8, .8)
   if gc.ecount() > 0:
-    sys.stdout.write('GC Diameter Unweighted = %i, Weighted = %.6f\n' % (gc.diameter(), gc.diameter(weights=gc.es['weight'])))
+    sys.stdout.write('GC Diameter %i (unweighted)\n' % gc.diameter())
     gc_vert = comp[comp.sizes().index(gc_size)]
     cim = gc.community_infomap(edge_weights=gc.es['weight'], vertex_weights=gc.vs['lfr'])
     M = max(cim.membership)+1
@@ -413,8 +414,6 @@ def _draw(args):
       gc_v = gc.vs.select(id_eq=v['id'])
       if len(gc_v) > 0:
         v['color'] = RGB_tuples[cim.membership[gc_v[0].index]]
-      else:
-        v['color'] = (.8, .8, .8)
     ID = max(g.vs.indegree()) or 1
     g.vs['label_size'] = [max(12, 36*v.indegree()/ID) for v in g.vs]
     g.es['color'] = [g.vs['color'][e.target] for e in g.es]
@@ -424,6 +423,10 @@ def _draw(args):
   for v in g.vs:
     if v['type'] == 'mention':
       v['label_color'] = 'blue'
+  for v in g.vs:
+    filename = '%s/%i%s' % (FDAT_DIR, v['id'], FDAT_EXT)
+    if not os.path.isfile(filename):
+      v['color'] = (0, 0, 0)
   filename = '_'.join(args.screen_name) + \
     ('_s' if args.strong else '_w') + \
     ('_t' if args.transparent else '') + \
@@ -470,10 +473,14 @@ def edgelist(args):
       lfr = (10*float(val[4])/float(val[3])) if float(val[3]) > 0 else 0
       e.write('\n    ffr %.4f' % ffr)
       e.write('\n    lfr %.4f' % lfr)
-    if ffr > 1:
-      e.write('\n    shape "triangle-up"')
+    if len(args.screen_name) > 1:
+      sid = [i for i,s in enumerate(args.screen_name) if s == val[9]][0]
+      e.write('\n    shape "%s"' % SHAPES[sid])
     else:
-      e.write('\n    shape "triangle-down"')
+      if ffr > 1:
+        e.write('\n    shape "triangle-up"')
+      else:
+        e.write('\n    shape "triangle-down"')
     e.write('\n  ]\n')
   for id1 in dat.keys():
     if id1 in id0:
@@ -506,6 +513,8 @@ def edgelist(args):
   e.close()
   sys.stdout.write('GML file created.\n')
   try:
+    if len(args.screen_name) > 1:
+      sys.stdout.write('Shapes mapping: %s -> %s\n' % (args.screen_name, SHAPES[0:len(args.screen_name)]))
     _draw(args)
   except:
     sys.stderr.write('Visualization skipped.\n')
@@ -530,11 +539,13 @@ def fetch(args):
         cursor = res = None
       except CursorError, e:
         if e.code in SKIP_CODES:
-          sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item[0]))
+          sys.stdout.write('HTTPError %s with %s. Skipping...\n' % \
+            (e.code, item[0]))
           cursor = res = None
           continue
         elif e.code in RETRY_CODES:
-          sys.stderr.write('HTTPError %s with %s. Deferred...' % (e.code, item[0]))
+          sys.stderr.write('HTTPError %s with %s. Deferred...' % \
+            (e.code, item[0]))
           sys.stderr.flush()
           dat.append(item)
           time.sleep(random.randint(10,60))
@@ -542,8 +553,7 @@ def fetch(args):
           sys.stderr.write('\n')
           continue
         elif e.code in WAIT_CODES:
-          sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
-            (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(dat)+1))
+          sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(dat)+1))
           sys.stderr.flush()
           time.sleep(RL_WINDOW+random.randint(10,60))
           cursor = e.cursor
@@ -580,8 +590,7 @@ def _destroy(screen_name):
         sys.stderr.write('\n')
         continue
       elif e.code in WAIT_CODES:
-        sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % \
-          (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(dat)+1))
+        sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(dat)+1))
         sys.stderr.flush()
         time.sleep(RL_WINDOW+random.randint(10,60))
         dat.append(item)

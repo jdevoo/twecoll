@@ -125,3 +125,5 @@ sub-commands:
 	- Renamed favorites to likes
 * Version 1.10
 	- Restored possibility to mix files using edgelist
+* Version 1.11
+	- Suppress nodes with missing data in edgelist by default

@@ -37,7 +37,7 @@ import csv
 import re
 import codecs
 
-__version__     = '1.10'
+__version__     = '1.11'
 ALPHANUM        = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
@@ -385,12 +385,6 @@ def init(args):
       ','+avatar+ \
       ','+location.encode('ascii', 'replace').replace(',', ' ')+'\n')
 
-def _wrap(s):
-  return int(sys.maxsize - long(s)) if long(s) > sys.maxsize else int(s)
- 
-def _unwrap(s):
-  return long(sys.maxsize - s) if s < 0 else long(s)
- 
 def _palette(rng):
   import colorsys
   HSV_tuples = [(t*1.0/rng, 0.75, 1.0) for t in range(rng)]
@@ -404,7 +398,6 @@ def _draw(args):
   sys.stdout.write('In-Degree Distribution mean = %.6f, sd = %.6f\n' % (g.degree_distribution(mode=igraph.IN).mean, g.degree_distribution(mode=igraph.IN).sd))
   sys.stdout.write('Clustering Coefficient = %.6f\n' % g.transitivity_undirected())
   sys.stdout.write('Degree Assortativity = %.6f\n' % g.assortativity_degree())
-  #sys.stdout.write('Triad Census\n%s\n' % str(g.triad_census()))
   width = height = int(750+g.vcount()*4.73-g.vcount()**2*1.55e-3)
   comp = g.clusters(igraph.STRONG if args.strong else igraph.WEAK)
   sys.stdout.write('Cluster Modularity = %.6f\n' % comp.modularity)
@@ -437,7 +430,7 @@ def _draw(args):
     if v['type'] == 'mention':
       v['label_color'] = 'blue'
   for v in g.vs:
-    filename = '%s/%i%s' % (FDAT_DIR, _unwrap(v['id']), FDAT_EXT)
+    filename = '%s/%s%s' % (FDAT_DIR, v['user_id'], FDAT_EXT)
     if not os.path.isfile(filename):
       v['color'] = (0, 0, 0)
   filename = '_'.join(args.screen_name) + \
@@ -458,20 +451,36 @@ def _skip_hash(iterable):
 
 def edgelist(args):
   dat = {}
+  i = 0
   for sn in args.screen_name:
     for item in csv.reader(_skip_hash(open(sn+TT_EXT))):
       if not dat.has_key(item[0]):
-        dat[item[0]] = item[1:10]+[sn]
-  id0 = [user_id for user_id, val in dat.iteritems() if val[0] in args.screen_name]
+        dat[item[0]] = [i]+item[1:11]+[sn]
+        i = i + 1
+        # key: user id
+        # col 0: GML id
+        # col 1: screen name
+        # col 2: friends or followers or list name
+        # col 3: friend count
+        # col 4: follower count
+        # col 5: listed count
+        # col 6: tweets
+        # col 7: date joined
+        # col 8: url
+        # col 9: avatar
+        # col 10: location
+        # col 11: handle arg
+  id0 = {user_id: val[0] for user_id, val in dat.iteritems() if val[1] in args.screen_name}
   e = open('_'.join(args.screen_name)+EDG_EXT, 'w')
   e.write('graph [\n  directed 1\n')
   for user_id, val in dat.iteritems():
-    if not args.ego and val[0] in args.screen_name:
+    if not args.ego and val[1] in args.screen_name:
       continue
     if not args.missing and not os.path.isfile(FDAT_DIR+'/'+str(user_id)+FDAT_EXT):
       continue
     e.write('''  node [
     id %s
+    user_id "%s"
     file "%s.dat"
     label "%s"
     image "%s"
@@ -479,14 +488,13 @@ def edgelist(args):
     statuses %s
     friends %s
     followers %s
-    listed %s''' % (_wrap(user_id), val[9], val[0], os.path.abspath(val[8]), val[1], val[5], val[2], val[3], val[4]))
-    if float(val[2]) > 0:
-      ffr = (float(val[3])/float(val[2])) if float(val[2]) > 0 else 0
-      lfr = (10*float(val[4])/float(val[3])) if float(val[3]) > 0 else 0
-      e.write('\n    ffr %.4f' % ffr)
-      e.write('\n    lfr %.4f' % lfr)
+    listed %s''' % (val[0], user_id, val[11], val[1], os.path.abspath(val[9]), val[2], val[6], val[3], val[4], val[5]))
+    ffr = (float(val[4])/float(val[3])) if float(val[3]) > 0 else 0
+    lfr = (10*float(val[5])/float(val[4])) if float(val[4]) > 0 else 0
+    e.write('\n    ffr %.4f' % ffr)
+    e.write('\n    lfr %.4f' % lfr)
     if len(args.screen_name) > 1:
-      sid = [i for i,s in enumerate(args.screen_name) if s == val[9]][0]
+      sid = [i for i,s in enumerate(args.screen_name) if s == val[11]][0]
       e.write('\n    shape "%s"' % SHAPES[sid])
     else:
       if ffr > 1:
@@ -494,35 +502,37 @@ def edgelist(args):
       else:
         e.write('\n    shape "triangle-down"')
     e.write('\n  ]\n')
-  for id1 in dat.keys():
-    if id1 in id0:
+  for id1, val in dat.iteritems():
+    if id1 in id0.keys():
       continue
     if not args.missing and not os.path.isfile(FDAT_DIR+'/'+str(id1)+FDAT_EXT):
       continue
     if args.ego:
-      for idzero in id0:
+      for idzero in id0.values():
+        d = _days(val[7])
         e.write('''  edge [
     source %s
     target %s
     weight %s
   ]
-''' % (_wrap(idzero), _wrap(id1), float(dat[id1][5])/_days(dat[id1][6])))
+''' % (idzero, val[0], float(val[6])/d if float(d) > 0 else 0))
     filename = FDAT_DIR+'/'+str(id1)+FDAT_EXT
     if os.path.isfile(filename):
       fdat = open(filename).readlines()
-      for row, line in enumerate(fdat):
+      for line in fdat:
         id2 = line.strip()
         if dat.has_key(id2):
-          if not args.ego and id2 in id0:
+          if not args.ego and id2 in id0.keys():
             continue
           if not args.missing and not os.path.isfile(FDAT_DIR+'/'+str(id2)+FDAT_EXT):
             continue
+          d = _days(dat[id2][7])
           e.write('''  edge [
     source %s
     target %s
     weight %s
   ]
-''' % (_wrap(id1), _wrap(id2), float(dat[id2][5])/_days(dat[id2][6])))
+''' % (val[0], dat[id2][0], float(dat[id2][6])/d if float(d) > 0 else 0))
     else:
       sys.stdout.write('Missing data for %s\n' % dat[id1][0])
   e.write(']\n')

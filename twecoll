@@ -468,6 +468,8 @@ def edgelist(args):
   for user_id, val in dat.iteritems():
     if not args.ego and val[0] in args.screen_name:
       continue
+    if not args.missing and not os.path.isfile(FDAT_DIR+'/'+str(user_id)+FDAT_EXT):
+      continue
     e.write('''  node [
     id %s
     file "%s.dat"
@@ -495,6 +497,8 @@ def edgelist(args):
   for id1 in dat.keys():
     if id1 in id0:
       continue
+    if not args.missing and not os.path.isfile(FDAT_DIR+'/'+str(id1)+FDAT_EXT):
+      continue
     if args.ego:
       for idzero in id0:
         e.write('''  edge [
@@ -510,6 +514,8 @@ def edgelist(args):
         id2 = line.strip()
         if dat.has_key(id2):
           if not args.ego and id2 in id0:
+            continue
+          if not args.missing and not os.path.isfile(FDAT_DIR+'/'+str(id2)+FDAT_EXT):
             continue
           e.write('''  edge [
     source %s
@@ -818,6 +824,8 @@ def main():
     help='hide edges in graph (default: visible)')
   sp_edgelist.add_argument(dest='screen_name', nargs='+', action=QuoteAction, \
     help='Twitter screen name')
+  sp_edgelist.add_argument('-m', '--missing', action='store_true', \
+    help='include missing handles (default: False)')
   sp_edgelist.set_defaults(func=edgelist)
 
   parser.add_argument('-s', '--stats', action=StatsAction, nargs=0, \

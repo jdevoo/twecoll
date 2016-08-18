@@ -37,7 +37,7 @@ import csv
 import re
 import codecs
 
-__version__     = '1.11'
+__version__     = '1.12'
 ALPHANUM        = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
@@ -534,7 +534,7 @@ def edgelist(args):
   ]
 ''' % (val[0], dat[id2][0], float(dat[id2][6])/d if float(d) > 0 else 0))
     else:
-      sys.stdout.write('Missing data for %s\n' % dat[id1][0])
+      sys.stdout.write('Missing data for %s\n' % dat[id1][1])
   e.write(']\n')
   e.close()
   sys.stdout.write('GML file created.\n')

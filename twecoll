@@ -332,58 +332,64 @@ def init(args):
   else:
     f = open(filename, 'w')
   while len(bag) > 0:
-    item = bag.pop()
-    sys.stdout.write('Processing %s...\n' % item)
+    if len(bag) > 99:
+      items = [bag.pop() for _i in xrange(100)]
+    else:
+      items = bag
+      bag = []
+    itemsstring = ','.join(map(str, items))
+    sys.stdout.write('Processing %s...\n' % itemsstring)
     try:
-      if isinstance(item, str):
-        url = 'https://api.twitter.com/1.1/users/show.json?screen_name=%s'
+      if isinstance(items[:0], str):
+        url = 'https://api.twitter.com/1.1/users/lookup.json?screen_name=%s'
       else:
-        url = 'https://api.twitter.com/1.1/users/show.json?user_id=%i'
-      conn = urllib2.urlopen(url % item)
+        url = 'https://api.twitter.com/1.1/users/lookup.json?user_id=%s'
+      conn = urllib2.urlopen(url % itemsstring)
     except urllib2.HTTPError, e:
       if e.code in SKIP_CODES:
-        sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, item))
+        sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, itemsstring))
         continue
       elif e.code in RETRY_CODES:
-        sys.stderr.write('HTTPError %s with %s. Deferred...' % (e.code, item))
+        sys.stderr.write('HTTPError %s with %s. Deferred...' % (e.code, itemsstring))
         sys.stderr.flush()
-        bag.append(item)
+        bag.append(itemsstring.split(','))
         time.sleep(random.randint(10,60))
         sys.stderr.write('\n')
         continue
       elif e.code in WAIT_CODES:
         sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(bag)+1))
         sys.stderr.flush()
-        bag.append(item)
+        bag.append(itemsstring.split(','))
         time.sleep(RL_WINDOW+random.randint(10,60))
         sys.stderr.write('\n')
         continue
       else:
         sys.stderr.write('\n')
         raise
-    data = json.loads(conn.read())
+    response = json.loads(conn.read())
     conn.close()
-    user_id = data['id_str'] if isinstance(item, str) else str(item)
-    name = item if isinstance(item, str) else data['screen_name']
-    url = data['url'] if data['url'] is not None else ''
-    avatar = data['profile_image_url'] if data['profile_image_url'] is not None else ''
-    if avatar != '':
-      try:
-        avatar = _fetch_img(user_id, avatar)
-      except:
-        avatar = ''
-    location = data['location']
-    f.write(user_id+ \
-      ','+name+ \
-      ','+('mention' if args.query and name not in users else type)+ \
-      ','+str(data['friends_count'])+ \
-      ','+str(data['followers_count'])+ \
-      ','+str(data['listed_count'])+ \
-      ','+str(data['statuses_count'])+ \
-      ','+data['created_at']+ \
-      ','+url.encode('ascii', 'replace')+ \
-      ','+avatar+ \
-      ','+location.encode('ascii', 'replace').replace(',', ' ')+'\n')
+    for data in response:
+      user_id = data['id_str']
+      name = data['screen_name']
+      url = data['url'] if data['url'] is not None else ''
+      avatar = data['profile_image_url'] if data['profile_image_url'] is not None else ''
+      if avatar != '':
+        try:
+          avatar = _fetch_img(user_id, avatar)
+        except:
+          avatar = ''
+      location = data['location']
+      f.write(user_id+ \
+        ','+name+ \
+        ','+('mention' if args.query and name not in users else type)+ \
+        ','+str(data['friends_count'])+ \
+        ','+str(data['followers_count'])+ \
+        ','+str(data['listed_count'])+ \
+        ','+str(data['statuses_count'])+ \
+        ','+data['created_at']+ \
+        ','+url.encode('ascii', 'replace')+ \
+        ','+avatar+ \
+        ','+location.encode('ascii', 'replace').replace(',', ' ')+'\n')
 
 def _palette(rng):
   import colorsys

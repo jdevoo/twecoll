@@ -331,16 +331,28 @@ def init(args):
         continue
   else:
     f = open(filename, 'w')
-  while len(bag) > 0:
-    if len(bag) > 99:
-      items = [bag.pop() for _i in xrange(100)]
+
+  bagId = [x for x in bag if isinstance(x, int)]
+  bagName = [x for x in bag if isinstance(x, str)]
+  bag = []
+  while len(bagId) > 0 or len(bagName):
+    if len(bagId) > 99 or len(bagName) > 99:
+      items = []
+      while len(items) < 99:
+        if len(bagId) > 99:
+          items = [bagId.pop() for _i in xrange(99)]
+        else:
+          items = [bagName.pop() for _i in xrange(99)]
     else:
-      items = bag
-      bag = []
+      items = bagId
+      bagId = []
+      if not items:
+        items = bagName
+        bagName = []
     itemsstring = ','.join(map(str, items))
     sys.stdout.write('Processing %s...\n' % itemsstring)
     try:
-      if isinstance(items[:0], str):
+      if isinstance(items[0], str):
         url = 'https://api.twitter.com/1.1/users/lookup.json?screen_name=%s'
       else:
         url = 'https://api.twitter.com/1.1/users/lookup.json?user_id=%s'

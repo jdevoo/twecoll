@@ -237,8 +237,8 @@ def resolve(args):
       sys.stdout.write(data['screen_name']+' ')
     else:
       sys.stdout.write(data['id_str']+' ')
-    sys.stdout.write('(%s tweets | %s friends | %s followers | %s memberships)\n' % (\
-      data['statuses_count'], data['friends_count'], data['followers_count'], data['listed_count']))
+    sys.stdout.write('(%s friends | %s followers | %s memberships | %s tweets)\n' % (\
+      data['friends_count'], data['followers_count'], data['listed_count'], data['statuses_count']))
 
 class CursorError(urllib2.HTTPError):
   def __init__(self, code, cursor=None, res=None):
@@ -306,8 +306,12 @@ def init(args):
         if args.l:
           bag = _members('slug='+args.l+'&owner_screen_name='+args.screen_name, cursor, res)
         else:
-          bag = [args.screen_name] + \
-            _ids(type, 'screen_name='+args.screen_name, cursor, res)
+          type = 'followers' if args.followers else 'friends'
+          url = 'https://api.twitter.com/1.1/users/show.json?screen_name=%s'
+          conn = urllib2.urlopen(url % args.screen_name)
+          data = json.loads(conn.read())
+          conn.close()
+          bag = [data['id']] + _ids(type, 'screen_name='+args.screen_name, cursor, res)
         break
       except CursorError, e:
         if e.code in WAIT_CODES:
@@ -332,76 +336,67 @@ def init(args):
   else:
     f = open(filename, 'w')
   while len(bag) > 0:
-    bagId = [x for x in bag if isinstance(x, int)]
-    bagName = [x for x in bag if isinstance(x, str)]
-    bag = []
-    while len(bagId) > 0 or len(bagName) > 0:
-      if len(bagId) > 99 or len(bagName) > 99:
-        items = []
-        while len(items) < 99:
-          if len(bagId) > 99:
-            items = [bagId.pop() for _i in xrange(100)]
-          else:
-            items = [bagName.pop() for _i in xrange(100)]
+    next_items = []
+    if len(bag) > 100:
+      while len(next_items) < 100:
+        next_items = [bag.pop() for _ in xrange(100)]
+    else:
+      next_items = bag
+      bag = []
+    sys.stdout.write('Processing %i starting from %s...\n' % (len(next_items), next_items[0]))
+    try:
+      if isinstance(next_items[0], str):
+        url = 'https://api.twitter.com/1.1/users/lookup.json?screen_name=%s&include_entities=false'
+        items_str = ','.join(next_items)
       else:
-        items = bagId
-        bagId = []
-        if not items:
-          items = bagName
-          bagName = []
-      itemsstring = ','.join(map(str, items))
-      sys.stdout.write('Processing %s...\n' % itemsstring)
-      try:
-        if isinstance(items[0], str):
-          url = 'https://api.twitter.com/1.1/users/lookup.json?screen_name=%s&include_entities=false'
-        else:
-          url = 'https://api.twitter.com/1.1/users/lookup.json?user_id=%s&include_entities=false'
-        conn = urllib2.urlopen(url % itemsstring)
-      except urllib2.HTTPError, e:
-        if e.code in SKIP_CODES:
-          sys.stdout.write('HTTPError %s with %s. Skipping...\n' % (e.code, itemsstring))
-          continue
-        elif e.code in RETRY_CODES:
-          sys.stderr.write('HTTPError %s with %s. Deferred...' % (e.code, itemsstring))
-          sys.stderr.flush()
-          bag.append(itemsstring.split(','))
-          time.sleep(random.randint(10,60))
-          sys.stderr.write('\n')
-          continue
-        elif e.code in WAIT_CODES:
-          sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(bag)+1))
-          sys.stderr.flush()
-          bag.append(itemsstring.split(','))
-          time.sleep(RL_WINDOW+random.randint(10,60))
-          sys.stderr.write('\n')
-          continue
-        else:
-          sys.stderr.write('\n')
-          raise
-      response = json.loads(conn.read())
-      conn.close()
-      for data in response:
-        user_id = data['id_str']
-        name = data['screen_name']
-        url = data['url'] if data['url'] is not None else ''
-        avatar = data['profile_image_url'] if data['profile_image_url'] is not None else ''
-        if avatar != '':
-          try:
-            avatar = _fetch_img(user_id, avatar)
-          except:
-            avatar = ''
-        location = data['location']
-        f.write(user_id+ \
-          ','+name+ \
-          ','+('mention' if args.query and name not in users else type)+ \
-          ','+str(data['friends_count'])+ \
-          ','+str(data['followers_count'])+ \
-          ','+str(data['listed_count'])+ \
-          ','+str(data['statuses_count'])+ \
-          ','+data['created_at']+ \
-          ','+url.encode('ascii', 'replace')+ \
-          ','+avatar+ \
-          ','+location.encode('ascii', 'replace').replace(',', ' ')+'\n')
+        url = 'https://api.twitter.com/1.1/users/lookup.json?user_id=%s&include_entities=false'
+        items_str = ','.join(map(str, next_items))
+      conn = urllib2.urlopen(url % items_str)
+    except urllib2.HTTPError, e:
+      if e.code in SKIP_CODES:
+        sys.stdout.write('HTTPError %s starting from %s. Skipping...\n' % (e.code, next_items[0]))
+        continue
+      elif e.code in RETRY_CODES:
+        bag.append(next_items)
+        sys.stderr.write('HTTPError %s starting from %s. Deferred...' % (e.code, next_items[0]))
+        sys.stderr.flush()
+        time.sleep(random.randint(10,60))
+        sys.stderr.write('\n')
+        continue
+      elif e.code in WAIT_CODES:
+        bag.append(next_items)
+        sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(bag)))
+        sys.stderr.flush()
+        time.sleep(RL_WINDOW+random.randint(10,60))
+        sys.stderr.write('\n')
+        continue
+      else:
+        sys.stderr.write('\n')
+        raise
+    response = json.loads(conn.read())
+    conn.close()
+    for data in response:
+      user_id = data['id_str']
+      name = data['screen_name']
+      url = data['url'] if data['url'] is not None else ''
+      avatar = data['profile_image_url'] if data['profile_image_url'] is not None else ''
+      if avatar != '':
+        try:
+          avatar = _fetch_img(user_id, avatar)
+        except:
+          avatar = ''
+      location = data['location']
+      f.write(user_id+ \
+        ','+name+ \
+        ','+('mention' if args.query and name not in users else type)+ \
+        ','+str(data['friends_count'])+ \
+        ','+str(data['followers_count'])+ \
+        ','+str(data['listed_count'])+ \
+        ','+str(data['statuses_count'])+ \
+        ','+data['created_at']+ \
+        ','+url.encode('ascii', 'replace')+ \
+        ','+avatar+ \
+        ','+location.encode('ascii', 'replace').replace(',', ' ')+'\n')
 
 def _palette(rng):
   import colorsys
@@ -765,13 +760,15 @@ class StatsAction(argparse.Action):
     conn = urllib2.urlopen(url)
     data = json.loads(conn.read())
     conn.close()
-    sys.stdout.write('init/resolve (%s), ' % \
-      data['resources']['users']['/users/show/:id']['remaining'])
+    sys.stdout.write('init (%s), ' % \
+      data['resources']['users']['/users/lookup']['remaining'])
     sys.stdout.write('fetch (%s), ' % \
       data['resources']['friends']['/friends/ids']['remaining'])
     sys.stdout.write('tweets (%s, -q %s), ' % ( \
       data['resources']['statuses']['/statuses/user_timeline']['remaining'], \
       data['resources']['search']['/search/tweets']['remaining']))
+    sys.stdout.write('resolve (%s), ' % \
+      data['resources']['users']['/users/show/:id']['remaining'])
     sys.stdout.write('likes (%s)\n' % \
       data['resources']['favorites']['/favorites/list']['remaining'])
     sys.exit(0)

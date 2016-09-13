@@ -17,6 +17,10 @@ Twecoll uses oauth and has been updated to support the 1.1 version of the Twitte
 
 The first time you run a twecoll command, it will ask you for the consumer key and consumer secret. It will then retrieve the oauth token. Follow the instructions on the console. An HTTP Error 401 will be thrown if the key and secret cannot be used to retrieve the access token details.
 
+## Contributors
+
+Thank you to @lucahammer contributing time, feedback & pull requests to this project.
+
 ## Examples
 
 #### Download and Purge Likes
@@ -127,3 +131,5 @@ sub-commands:
 	- Restored possibility to mix files using edgelist
 * Version 1.11
 	- Suppress nodes with missing data in edgelist by default
+* Version 1.12
+	- Improved init

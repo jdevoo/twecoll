@@ -364,7 +364,7 @@ def init(args):
         sys.stdout.write('HTTPError %s starting from %s. Skipping...\n' % (e.code, next_items[0]))
         continue
       elif (hasattr(e, 'code') and e.code in RETRY_CODES) or \
-          (hasattr(e, 'errno') and e.errno in (errno.ECONNRESET, errno.EGAIN)):
+          (hasattr(e, 'errno') and e.errno in (errno.ECONNRESET, errno.EAGAIN)):
         bag += next_items
         sys.stderr.write('HTTPError %s starting from %s. Deferred...' % (e.code, next_items[0]))
         sys.stderr.flush()
@@ -597,7 +597,7 @@ def fetch(args):
           cursor = res = None
           continue
         elif (hasattr(e, 'code') and e.code in RETRY_CODES) or \
-            (hasattr(e, 'errno') and e.errno in (errno.ECONNRESET, errno.EGAIN)):
+            (hasattr(e, 'errno') and e.errno in (errno.ECONNRESET, errno.EAGAIN)):
           sys.stderr.write('HTTPError %s with %s. Deferred...' % \
             (e.code, item[0]))
           sys.stderr.flush()

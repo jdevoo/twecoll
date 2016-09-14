@@ -36,9 +36,11 @@ import math
 import csv
 import re
 import codecs
+import errno
+import socket
 
-__version__     = '1.12'
-ALPHANUM        = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+__version__ = '1.12'
+ALPHANUM    = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
 IMG_DIR     = 'img'
@@ -284,12 +286,15 @@ def _members(param, c=None, init=None):
       break
   return res
 
+# first retrieve list of IDs from relation, tweets or list memberships
+# then retrieve details for each 100 at a time
 def init(args):
   if args.l:
     type = args.l
   else:
     type = 'followers' if args.followers else 'friends'
   if args.query:
+    # retrieve handles from file
     bag = []
     users = []
     for tweet in open(args.screen_name+TWT_EXT):
@@ -300,13 +305,13 @@ def init(args):
     bag = list(set(bag))
     users = list(set(users))
   else:
+    # retrieve IDs from relationship
     cursor = res = None
     while True:
       try:
         if args.l:
           bag = _members('slug='+args.l+'&owner_screen_name='+args.screen_name, cursor, res)
         else:
-          type = 'followers' if args.followers else 'friends'
           url = 'https://api.twitter.com/1.1/users/show.json?screen_name=%s'
           conn = urllib2.urlopen(url % args.screen_name)
           data = json.loads(conn.read())
@@ -326,15 +331,16 @@ def init(args):
           raise
   filename = args.screen_name+TT_EXT
   if not args.force and os.path.isfile(filename):
+    # ignore previously processed data found in file
     f = open(filename, 'r+')
     for item in csv.reader(f):
       try:
-        bag.remove(item[1] if \
-          args.query or item[1] == args.screen_name else int(item[0]))
+        bag.remove(item[1].lower() if args.query else int(item[0]))
       except:
         continue
   else:
     f = open(filename, 'w')
+  # retrieve details for all IDs in the bag
   while len(bag) > 0:
     next_items = []
     if len(bag) > 100:
@@ -352,19 +358,21 @@ def init(args):
         url = 'https://api.twitter.com/1.1/users/lookup.json?user_id=%s&include_entities=false'
         items_str = ','.join(map(str, next_items))
       conn = urllib2.urlopen(url % items_str)
-    except urllib2.HTTPError, e:
-      if e.code in SKIP_CODES:
+    except (urllib2.HTTPError, socket.error) as e:
+      if hasattr(e, 'code') and e.code in SKIP_CODES:
+        # 404 if no lookup criteria could be satisified
         sys.stdout.write('HTTPError %s starting from %s. Skipping...\n' % (e.code, next_items[0]))
         continue
-      elif e.code in RETRY_CODES:
-        bag.append(next_items)
+      elif (hasattr(e, 'code') and e.code in RETRY_CODES) or \
+          (hasattr(e, 'errno') and e.errno in (errno.ECONNRESET, errno.EGAIN)):
+        bag += next_items
         sys.stderr.write('HTTPError %s starting from %s. Deferred...' % (e.code, next_items[0]))
         sys.stderr.flush()
         time.sleep(random.randint(10,60))
         sys.stderr.write('\n')
         continue
-      elif e.code in WAIT_CODES:
-        bag.append(next_items)
+      elif hasattr(e, 'code') and e.code in WAIT_CODES:
+        bag += next_items
         sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(bag)))
         sys.stderr.flush()
         time.sleep(RL_WINDOW+random.randint(10,60))
@@ -375,6 +383,7 @@ def init(args):
         raise
     response = json.loads(conn.read())
     conn.close()
+    # write details for each block to disk
     for data in response:
       user_id = data['id_str']
       name = data['screen_name']
@@ -398,11 +407,13 @@ def init(args):
         ','+avatar+ \
         ','+location.encode('ascii', 'replace').replace(',', ' ')+'\n')
 
+# used for igraph visualization
 def _palette(rng):
   import colorsys
   HSV_tuples = [(t*1.0/rng, 0.75, 1.0) for t in range(rng)]
   return map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
 
+# requires igraph
 def _draw(args):
   import igraph
   g = igraph.load('_'.join(args.screen_name)+EDG_EXT)
@@ -457,11 +468,13 @@ def _days(created):
   c = time.strptime(created, "%a %b %d %H:%M:%S +0000 %Y")
   return datetime.timedelta(seconds=(time.mktime(t)-time.mktime(c))).days
 
+# support commenting out lines in file
 def _skip_hash(iterable):
   for line in iterable:
     if not line.startswith('#'):
       yield line
 
+# generate GML file readable by Gephi or igraph
 def edgelist(args):
   dat = {}
   i = 0
@@ -559,6 +572,7 @@ def edgelist(args):
     sys.stderr.write('Visualization skipped.\n')
     raise
 
+# retrieve friends
 def fetch(args):
   dat = [item for item in csv.reader(_skip_hash(open(args.screen_name+TT_EXT)))]
   if not os.path.exists(FDAT_DIR):
@@ -576,13 +590,14 @@ def fetch(args):
       try:
         bag = _ids('friends', 'user_id='+str(item[0]), cursor, res)
         cursor = res = None
-      except CursorError, e:
-        if e.code in SKIP_CODES:
+      except (CursorError, socket.error) as e:
+        if hasattr(e, 'code') and e.code in SKIP_CODES:
           sys.stdout.write('HTTPError %s with %s. Skipping...\n' % \
             (e.code, item[0]))
           cursor = res = None
           continue
-        elif e.code in RETRY_CODES:
+        elif (hasattr(e, 'code') and e.code in RETRY_CODES) or \
+            (hasattr(e, 'errno') and e.errno in (errno.ECONNRESET, errno.EGAIN)):
           sys.stderr.write('HTTPError %s with %s. Deferred...' % \
             (e.code, item[0]))
           sys.stderr.flush()
@@ -591,7 +606,7 @@ def fetch(args):
           cursor = res = None
           sys.stderr.write('\n')
           continue
-        elif e.code in WAIT_CODES:
+        elif hasattr(e, 'code') and e.code in WAIT_CODES:
           sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(dat)+1))
           sys.stderr.flush()
           time.sleep(RL_WINDOW+random.randint(10,60))
@@ -641,6 +656,7 @@ def _destroy(screen_name):
     data = json.loads(conn.read())
     conn.close()
 
+# retrieve and optionally purge favorites
 def likes(args):
   if args.purge:
     sys.stderr.write('Press any key to purge likes or Ctrl-C to abort...')
@@ -699,6 +715,7 @@ def likes(args):
           tweet['user']['screen_name'], \
           tweet['text'].replace('\n', ' ')))
 
+# retrieve tweets
 def tweets(args):
   f = codecs.open(args.screen_name+TWT_EXT, 'w', encoding='utf-8')
   max_id = None
@@ -753,6 +770,7 @@ def tweets(args):
       else:
         f.write('%30s %s\n' % (tweet['created_at'], tweet['text'].replace('\n', ' ')))
 
+# find out remaining calls left by endpoint
 class StatsAction(argparse.Action):
   def __call__(self, parse, namespace, values, option_string=None):
     _replace_opener()

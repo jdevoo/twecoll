@@ -1,5 +1,8 @@
 Twecoll is a Twitter command-line tool written in Python. It can be used to retrieve data from Twitter and purge likes (its only data-altering feature). It is based on a sub-command principle meaning calls to twecoll are based on a keyword which instructs twecoll what to do. Below is a list of examples followed by a brief explanation of each command. Running twecoll requires Python 2.7 and the argparse library. It was tested with igraph 0.6 and 0.7.1. The igraph library is optional and is used to generate a clustered graph of the network.
 
+## Contributors
+
+Thank you to [@lucahammer](https://github.com/lucahammer) contributing time, feedback & pull requests to this project.
 
 ## Installation
 
@@ -16,10 +19,6 @@ Place twecoll in your path and create a working directory to store the data coll
 Twecoll uses oauth and has been updated to support the 1.1 version of the Twitter REST API. Register your own copy of twecoll on http://apps.twitter.com and copy the consumer key and secret.
 
 The first time you run a twecoll command, it will ask you for the consumer key and consumer secret. It will then retrieve the oauth token. Follow the instructions on the console. An HTTP Error 401 will be thrown if the key and secret cannot be used to retrieve the access token details.
-
-## Contributors
-
-Thank you to @lucahammer contributing time, feedback & pull requests to this project.
 
 ## Examples
 

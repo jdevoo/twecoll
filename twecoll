@@ -397,7 +397,7 @@ def init(args):
       location = data['location']
       f.write(user_id+ \
         ','+name+ \
-        ','+('mention' if args.query and name not in users else type)+ \
+        ','+('mention' if args.query and name.lower() not in users else type)+ \
         ','+str(data['friends_count'])+ \
         ','+str(data['followers_count'])+ \
         ','+str(data['listed_count'])+ \

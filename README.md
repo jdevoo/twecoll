@@ -132,3 +132,5 @@ sub-commands:
 	- Suppress nodes with missing data in edgelist by default
 * Version 1.12
 	- Improved init
+* Version 1.13
+	- Added option to skip mentions from queries in init

@@ -39,7 +39,7 @@ import codecs
 import errno
 import socket
 
-__version__ = '1.12'
+__version__ = '1.13'
 ALPHANUM    = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 FDAT_DIR    = 'fdat'
@@ -300,6 +300,8 @@ def init(args):
     for tweet in open(args.screen_name+TWT_EXT):
       handles = re.findall(r'@([\w]+)', tweet.lower())
       if len(handles) > 0:
+        if args.nomention:
+            handles = [handles[0]]
         bag += handles
         users.append(handles[0])
     bag = list(set(bag))
@@ -813,6 +815,8 @@ def main():
     help='retrieve followers (default: friends)')
   sp_init.add_argument('-q', '--query', action='store_true', \
     help='extract handles from query (default: screen_name)')
+  sp_init.add_argument('-n', '--nomention', action='store_true', \
+    help='ignore mentions from query (default: false)')
   sp_init.add_argument('-m', '--members', dest='l', \
     help='extract member handles from list named L')
   sp_init.add_argument('-f', '--force', action='store_true', \

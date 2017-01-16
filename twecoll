@@ -396,7 +396,7 @@ def init(args):
           avatar = _fetch_img(user_id, avatar)
         except:
           avatar = ''
-      location = data['location']
+      location = data['location'].replace(',', ' ').replace('\n', ' ')
       f.write(user_id+ \
         ','+name+ \
         ','+('mention' if args.query and name.lower() not in users else type)+ \
@@ -407,7 +407,7 @@ def init(args):
         ','+data['created_at']+ \
         ','+url.encode('ascii', 'replace')+ \
         ','+avatar+ \
-        ','+location.encode('ascii', 'replace').replace(',', ' ')+'\n')
+        ','+location.encode('ascii', 'replace')+'\n')
 
 # used for igraph visualization
 def _palette(rng):

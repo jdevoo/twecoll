@@ -14,5 +14,8 @@ RUN pip install cairocffi
 RUN git clone https://github.com/jdevoo/twecoll.git
 ADD .twecoll /root
 
+WORKDIR /app
+VOLUME /app
+
 ENTRYPOINT ["twecoll"]
 CMD ["-v"]

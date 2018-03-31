@@ -426,7 +426,6 @@ def _draw(args):
   sys.stdout.write('Degree Assortativity = %.6f\n' % g.assortativity_degree())
   width = height = int(750+g.vcount()*4.73-g.vcount()**2*1.55e-3)
   comp = g.clusters(igraph.STRONG if args.strong else igraph.WEAK)
-  sys.stdout.write('Cluster Modularity = %.6f\n' % comp.modularity)
   gc = comp.giant()
   if len(args.screen_name) > 1 and not args.strong:
     RGB_dict = dict(zip(SHAPES, _palette(len(SHAPES))))

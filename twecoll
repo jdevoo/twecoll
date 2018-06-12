@@ -675,7 +675,7 @@ def likes(args):
         url = 'https://api.twitter.com/1.1/favorites/list.json?count=%s&screen_name=%s'
         if max_id:
           url += '&max_id=%i' % max_id
-        conn = urllib2.urlopen(url % (100, args.screen_name))
+        conn = urllib2.urlopen(url % (200, args.screen_name))
       except urllib2.HTTPError, e:
         if e.code in RETRY_CODES:
           sys.stderr.write('\nHTTPError %s. Retrying' % e.code)

@@ -53,7 +53,6 @@ EDG_EXT     = '.gml' # Graph Modeling Language
 WAIT_CODES  = (400, 503, 429)
 RETRY_CODES = (500, 502, 110)
 SKIP_CODES  = (401, 403, 404)
-RL_WINDOW   = 15*60 # Rate limiting timeout
 SHAPES      = ['box', 'circle', 'rect', 'triangle-up', 'diamond', 'triangle-down']
 
 from collections import namedtuple
@@ -243,10 +242,11 @@ def resolve(args):
       data['friends_count'], data['followers_count'], data['listed_count'], data['statuses_count']))
 
 class CursorError(urllib2.HTTPError):
-  def __init__(self, code, cursor=None, res=None):
+  def __init__(self, code, cursor=None, res=None, headers=None):
     urllib2.HTTPError.__init__(self, None, code, None, None, None)
     self.cursor = cursor
     self.res = res
+    self.headers = headers
 
 # Results are given in groups of 5,000
 def _ids(relation, param, c=None, init=None):
@@ -257,7 +257,7 @@ def _ids(relation, param, c=None, init=None):
       url = 'https://api.twitter.com/1.1/%s/ids.json?%s&cursor=%s'
       conn = urllib2.urlopen(url % (relation, param, cursor))
     except urllib2.HTTPError, e:
-      raise CursorError(e.code, cursor, res)
+      raise CursorError(e.code, cursor, res, e.headers)
     data = json.loads(conn.read())
     conn.close()
     res = res + data['ids']
@@ -322,9 +322,10 @@ def init(args):
         break
       except CursorError, e:
         if e.code in WAIT_CODES:
+          waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,30)
           sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume...' % \
-            (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
-          time.sleep(RL_WINDOW+random.randint(10,60))
+            (e.code, time.strftime('%H:%M', time.localtime()), waiting_time/60))
+          time.sleep(waiting_time)
           cursor = e.cursor
           res = e.res
           sys.stderr.write('\n')
@@ -370,14 +371,15 @@ def init(args):
         bag += next_items
         sys.stderr.write('HTTPError %s starting from %s. Deferred...' % (e.code, next_items[0]))
         sys.stderr.flush()
-        time.sleep(random.randint(10,60))
+        time.sleep(random.randint(10,30))
         sys.stderr.write('\n')
         continue
       elif hasattr(e, 'code') and e.code in WAIT_CODES:
         bag += next_items
-        sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(bag)))
+        waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,30)
+        sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), waiting_time/60, len(bag)))
         sys.stderr.flush()
-        time.sleep(RL_WINDOW+random.randint(10,60))
+        time.sleep(waiting_time)
         sys.stderr.write('\n')
         continue
       else:
@@ -602,14 +604,15 @@ def fetch(args):
             (e.code, item[0]))
           sys.stderr.flush()
           dat.append(item)
-          time.sleep(random.randint(10,60))
+          time.sleep(random.randint(10,30))
           cursor = res = None
           sys.stderr.write('\n')
           continue
         elif hasattr(e, 'code') and e.code in WAIT_CODES:
-          sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(dat)+1))
+          waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,30)
+          sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), waiting_time/60, len(dat)+1))
           sys.stderr.flush()
-          time.sleep(RL_WINDOW+random.randint(10,60))
+          time.sleep(waiting_time)
           cursor = e.cursor
           res = e.res
           sys.stderr.write('\n')
@@ -639,14 +642,15 @@ def _destroy(screen_name):
       elif e.code in RETRY_CODES:
         sys.stderr.write('HTTPError %s. Deferred...' % e.code)
         sys.stderr.flush()
-        time.sleep(random.randint(10,60))
+        time.sleep(random.randint(10,30))
         dat.append(item)
         sys.stderr.write('\n')
         continue
       elif e.code in WAIT_CODES:
-        sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60, len(dat)+1))
+        waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10, 30)
+        sys.stderr.write('HTTPError %s at %s. Waiting %sm to resume (%s items left)...' % (e.code, time.strftime('%H:%M', time.localtime()), waiting_time/60, len(dat)+1))
         sys.stderr.flush()
-        time.sleep(RL_WINDOW+random.randint(10,60))
+        time.sleep(waiting_time + random.randint(10,30))
         dat.append(item)
         sys.stderr.write('\n')
         continue
@@ -680,14 +684,15 @@ def likes(args):
         if e.code in RETRY_CODES:
           sys.stderr.write('\nHTTPError %s. Retrying' % e.code)
           sys.stderr.flush()
-          time.sleep(random.randint(10,60))
+          time.sleep(random.randint(10,30))
           sys.stderr.write('\n')
           continue
         elif e.code in WAIT_CODES:
+          waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,30)
           sys.stderr.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
-            (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
+            (e.code, time.strftime('%H:%M', time.localtime()), waiting_time/60))
           sys.stderr.flush()
-          time.sleep(RL_WINDOW+random.randint(10,60))
+          time.sleep(waiting_time)
           sys.stderr.write('\n')
           continue
         else:
@@ -738,10 +743,11 @@ def tweets(args):
         sys.stderr.flush()
         continue
       elif e.code in WAIT_CODES:
+        waiting_time = int(e.headers['x-rate-limit-reset']) - int(round(time.time())) + random.randint(10,30)
         sys.stderr.write('\nHTTPError %s at %s. Waiting %sm to resume...' % \
-          (e.code, time.strftime('%H:%M', time.localtime()), RL_WINDOW/60))
+          (e.code, time.strftime('%H:%M', time.localtime()), waiting_time/60))
         sys.stderr.flush()
-        time.sleep(RL_WINDOW+random.randint(10,60))
+        time.sleep(waiting_time)
         sys.stderr.write('\n')
         continue
       else:

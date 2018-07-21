@@ -2,7 +2,7 @@ Twecoll is a Twitter command-line tool written in Python. It can be used to retr
 
 ## Contributors
 
-Thank you to [@lucahammer](https://github.com/lucahammer) contributing time, feedback & pull requests to this project.
+Thank you to [@lucahammer](https://github.com/lucahammer) and [@PeterTheOne](https://github.com/PeterTheOne) for contributing time, feedback & pull requests to this project.
 
 ## Installation
 

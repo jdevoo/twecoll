@@ -456,7 +456,7 @@ def _draw(args):
   for v in g.vs:
     if v['type'] == 'mention':
       v['label_color'] = 'blue'
-    filename = '%s/%s%s' % (FDAT_DIR, v['user_id'], FDAT_EXT)
+    filename = '%s/%s%s' % (FDAT_DIR, v['userid'], FDAT_EXT)
     if not os.path.isfile(filename):
       v['color'] = (0, 0, 0)
   filename = '_'.join(args.screen_name) + \
@@ -508,7 +508,7 @@ def edgelist(args):
       continue
     e.write('''  node [
     id %s
-    user_id "%s"
+    userid "%s"
     file "%s.dat"
     label "%s"
     image "%s"
